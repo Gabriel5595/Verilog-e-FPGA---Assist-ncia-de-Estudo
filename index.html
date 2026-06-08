@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verilog &amp; FPGA — Prof. Daniel Vidal</title>
+  <meta name="description" content="Plataforma de estudos interativa — Fundamentos de Verilog e FPGA · Prof. Daniel Da Costa Vidal" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0e1a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    #root { min-height: 100vh; }
+    textarea, input[type=text] { font-family: "SFMono-Regular", Consolas, monospace; }
+    pre { white-space: pre-wrap; word-break: break-all; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0e1a; }
+    ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00d4ff44; }
+    #loading-screen {
+      position: fixed; inset: 0; background: #0a0e1a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; z-index: 9999;
+    }
+    #loading-screen .logo { color: #00d4ff; font-family: monospace; font-size: 28px; font-weight: 700; letter-spacing: 2px; }
+    #loading-screen .bar-wrap { width: 220px; height: 3px; background: #1e3a5f; border-radius: 2px; overflow: hidden; }
+    #loading-screen .bar { height: 100%; background: linear-gradient(90deg,#00d4ff,#a855f7); border-radius: 2px; animation: loadbar 2s ease-in-out forwards; }
+    #loading-screen p { color: #94a3b8; font-size: 13px; font-family: monospace; }
+    @keyframes loadbar { from { width: 0%; } to { width: 100%; } }
+  </style>
+</head>
+<body>
+<div id="loading-screen">
+  <div class="logo">&#x2B21; FPGA+VERILOG</div>
+  <div class="bar-wrap"><div class="bar"></div></div>
+  <p>Carregando módulos do curso...</p>
+</div>
+<div id="root"></div>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script>
+const { useState, useEffect, useRef, useCallback } = React;
+</script>
+<script type="text/babel" data-presets="react">
+
+const T = {
+  bg: "#0a0e1a", bgCard: "#0f1624", bgCode: "#070c14", bgSection: "#111827",
+  border: "#1e3a5f", accentGlow: "#00d4ff22",
+  accent: "#00d4ff", accentDim: "#0077aa",
+  green: "#00ff88", greenDim: "#00884422",
+  yellow: "#ffd700", yellowDim: "#ffd70022",
+  red: "#ff4466", purple: "#a855f7", purpleDim: "#a855f722",
+  orange: "#f97316", orangeDim: "#f9731622", teal: "#14b8a6",
+  text: "#e2e8f0", textDim: "#94a3b8", textMuted: "#4a5568",
+};
+const STORAGE_KEY = "fpga_verilog_v1";
+function loadProgress() {
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return JSON.parse(raw); } catch(e){}
+  const u = {}; MODULES.forEach((m,i) => { u[m.id] = i === 0; });
+  return { readSections: {}, quizScores: {}, moduleUnlocked: u };
+}
+function saveProgress(data) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){} }
+const DIAGRAMS = {
+fpgaStructure: `<svg viewBox="0 0 480 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:480px;background:#070c14;border-radius:10px;border:1px solid #1e3a5f">
+  <text x="240" y="20" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" font-weight="bold">Arquitetura Interna do FPGA (Manhattan)</text>
+  <rect x="20" y="30" width="440" height="215" rx="8" fill="none" stroke="#1e3a5f" stroke-width="1" stroke-dasharray="4"/>
+  <rect x="40" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="54" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="78" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="92" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="116" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="130" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="154" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="168" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="192" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="206" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="230" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="244" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="268" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="282" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="306" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="320" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="344" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="358" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="382" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="396" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="420" y="36" width="28" height="18" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="434" y="49" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="monospace">IO</text>
+  <rect x="25" y="65" width="18" height="24" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="34" y="81" text-anchor="middle" fill="#e2e8f0" font-size="7" font-family="monospace">IO</text>
+  <rect x="25" y="100" width="18" height="24" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="34" y="116" text-anchor="middle" fill="#e2e8f0" font-size="7" font-family="monospace">IO</text>
+  <rect x="25" y="135" width="18" height="24" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="34" y="151" text-anchor="middle" fill="#e2e8f0" font-size="7" font-family="monospace">IO</text>
+  <rect x="25" y="170" width="18" height="24" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="34" y="186" text-anchor="middle" fill="#e2e8f0" font-size="7" font-family="monospace">IO</text>
+  <rect x="437" y="65" width="18" height="24" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="446" y="81" text-anchor="middle" fill="#e2e8f0" font-size="7" font-family="monospace">IO</text>
+  <rect x="437" y="100" width="18" height="24" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="446" y="116" text-anchor="middle" fill="#e2e8f0" font-size="7" font-family="monospace">IO</text>
+  <rect x="437" y="135" width="18" height="24" rx="3" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="446" y="151" text-anchor="middle" fill="#e2e8f0" font-size="7" font-family="monospace">IO</text>
+  <rect x="55" y="68" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="71" y="85" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="100" y="68" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="116" y="85" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="145" y="68" width="32" height="26" rx="4" fill="#1a2a1a" stroke="#00ff88" stroke-width="1.5"/><text x="161" y="85" text-anchor="middle" fill="#00ff88" font-size="8" font-family="monospace">LUT</text>
+  <rect x="190" y="68" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="206" y="85" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="235" y="68" width="32" height="26" rx="4" fill="#1a2a1a" stroke="#00ff88" stroke-width="1.5"/><text x="251" y="85" text-anchor="middle" fill="#00ff88" font-size="8" font-family="monospace">LUT</text>
+  <rect x="280" y="68" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="296" y="85" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="325" y="68" width="32" height="26" rx="4" fill="#1a2a1a" stroke="#00ff88" stroke-width="1.5"/><text x="341" y="85" text-anchor="middle" fill="#00ff88" font-size="8" font-family="monospace">LUT</text>
+  <rect x="370" y="68" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="386" y="85" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="415" y="68" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="431" y="85" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="55" y="108" width="32" height="26" rx="4" fill="#1a2a1a" stroke="#00ff88" stroke-width="1.5"/><text x="71" y="125" text-anchor="middle" fill="#00ff88" font-size="8" font-family="monospace">LUT</text>
+  <rect x="100" y="108" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="116" y="125" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="145" y="108" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="161" y="125" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="190" y="108" width="32" height="26" rx="4" fill="#1a2a1a" stroke="#00ff88" stroke-width="1.5"/><text x="206" y="125" text-anchor="middle" fill="#00ff88" font-size="8" font-family="monospace">LUT</text>
+  <rect x="235" y="108" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="251" y="125" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="280" y="108" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="296" y="125" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="325" y="108" width="32" height="26" rx="4" fill="#1a2a1a" stroke="#00ff88" stroke-width="1.5"/><text x="341" y="125" text-anchor="middle" fill="#00ff88" font-size="8" font-family="monospace">LUT</text>
+  <rect x="370" y="108" width="32" height="26" rx="4" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/><text x="386" y="125" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="monospace">LB</text>
+  <rect x="415" y="108" width="32" height="26" rx="4" fill="#1a2a1a" stroke="#00ff88" stroke-width="1.5"/><text x="431" y="125" text-anchor="middle" fill="#00ff88" font-size="8" font-family="monospace">LUT</text>
+  <line x1="87" y1="81" x2="100" y2="81" stroke="#1e3a5f" stroke-width="1.5"/>
+  <line x1="132" y1="81" x2="145" y2="81" stroke="#00ff88" stroke-width="1.5" stroke-dasharray="3"/>
+  <line x1="177" y1="81" x2="190" y2="81" stroke="#1e3a5f" stroke-width="1.5"/>
+  <line x1="222" y1="81" x2="235" y2="81" stroke="#00ff88" stroke-width="1.5" stroke-dasharray="3"/>
+  <line x1="267" y1="81" x2="280" y2="81" stroke="#1e3a5f" stroke-width="1.5"/>
+  <line x1="312" y1="81" x2="325" y2="81" stroke="#00ff88" stroke-width="1.5" stroke-dasharray="3"/>
+  <line x1="357" y1="81" x2="370" y2="81" stroke="#1e3a5f" stroke-width="1.5"/>
+  <line x1="161" y1="94" x2="161" y2="108" stroke="#00ff88" stroke-width="1.5" stroke-dasharray="3"/>
+  <line x1="251" y1="94" x2="251" y2="108" stroke="#1e3a5f" stroke-width="1.5"/>
+  <line x1="341" y1="94" x2="341" y2="108" stroke="#00ff88" stroke-width="1.5" stroke-dasharray="3"/>
+  <rect x="55" y="215" width="12" height="10" rx="2" fill="#0f1f35" stroke="#00d4ff" stroke-width="1"/><text x="71" y="224" fill="#94a3b8" font-size="9" font-family="monospace">Bloco Lógico (LB)</text>
+  <rect x="190" y="215" width="12" height="10" rx="2" fill="#1a2a1a" stroke="#00ff88" stroke-width="1"/><text x="206" y="224" fill="#94a3b8" font-size="9" font-family="monospace">Look-Up Table (LUT)</text>
+  <rect x="345" y="215" width="12" height="10" rx="2" fill="#0077aa" stroke="#00d4ff" stroke-width="1"/><text x="361" y="224" fill="#94a3b8" font-size="9" font-family="monospace">Bloco IO</text>
+  <text x="240" y="245" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Linhas tracejadas = conexões programáveis (Verilog decide quais ficam ativas)</text>
+</svg>`,
+
+logicGates: `<svg viewBox="0 0 480 190" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:480px;background:#070c14;border-radius:10px;border:1px solid #1e3a5f">
+  <defs><marker id="ga" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#00d4ff"/></marker></defs>
+  <text x="240" y="16" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" font-weight="bold">Portas Lógicas Fundamentais</text>
+  <text x="58" y="34" text-anchor="middle" fill="#ffd700" font-size="10" font-family="monospace" font-weight="bold">AND</text>
+  <line x1="20" y1="58" x2="46" y2="58" stroke="#00d4ff" stroke-width="1.5"/><text x="17" y="61" fill="#94a3b8" font-size="9" font-family="monospace">A</text>
+  <line x1="20" y1="74" x2="46" y2="74" stroke="#00d4ff" stroke-width="1.5"/><text x="17" y="77" fill="#94a3b8" font-size="9" font-family="monospace">B</text>
+  <path d="M46,46 L46,86 L66,86 Q92,86 92,66 Q92,46 66,46 Z" fill="#0f1f35" stroke="#ffd700" stroke-width="1.5"/>
+  <line x1="92" y1="66" x2="112" y2="66" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#ga)"/>
+  <text x="115" y="69" fill="#00ff88" font-size="9" font-family="monospace">Q</text>
+  <text x="58" y="103" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Q = A·B</text>
+  <text x="58" y="115" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="monospace">Ambas=1 → saída 1</text>
+  <rect x="16" y="130" width="84" height="48" rx="4" fill="#0a0e1a" stroke="#1e3a5f"/>
+  <text x="28" y="143" fill="#ffd700" font-size="8" font-family="monospace">A B | Q</text>
+  <text x="28" y="154" fill="#94a3b8" font-size="8" font-family="monospace">0 0 | 0</text>
+  <text x="28" y="165" fill="#94a3b8" font-size="8" font-family="monospace">0 1 | 0</text>
+  <text x="28" y="176" fill="#94a3b8" font-size="8" font-family="monospace">1 1 | 1 ✓</text>
+  <text x="178" y="34" text-anchor="middle" fill="#00ff88" font-size="10" font-family="monospace" font-weight="bold">OR</text>
+  <line x1="140" y1="58" x2="158" y2="58" stroke="#00d4ff" stroke-width="1.5"/><text x="137" y="61" fill="#94a3b8" font-size="9" font-family="monospace">A</text>
+  <line x1="140" y1="74" x2="158" y2="74" stroke="#00d4ff" stroke-width="1.5"/><text x="137" y="77" fill="#94a3b8" font-size="9" font-family="monospace">B</text>
+  <path d="M158,46 Q165,66 158,86 Q176,86 206,66 Q176,46 158,46 Z" fill="#0f1f35" stroke="#00ff88" stroke-width="1.5"/>
+  <line x1="206" y1="66" x2="226" y2="66" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#ga)"/>
+  <text x="229" y="69" fill="#00ff88" font-size="9" font-family="monospace">Q</text>
+  <text x="178" y="103" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Q = A+B</text>
+  <text x="178" y="115" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="monospace">Qualquer=1 → saída 1</text>
+  <rect x="136" y="130" width="84" height="48" rx="4" fill="#0a0e1a" stroke="#1e3a5f"/>
+  <text x="148" y="143" fill="#00ff88" font-size="8" font-family="monospace">A B | Q</text>
+  <text x="148" y="154" fill="#94a3b8" font-size="8" font-family="monospace">0 0 | 0</text>
+  <text x="148" y="165" fill="#94a3b8" font-size="8" font-family="monospace">0 1 | 1 ✓</text>
+  <text x="148" y="176" fill="#94a3b8" font-size="8" font-family="monospace">1 1 | 1 ✓</text>
+  <text x="298" y="34" text-anchor="middle" fill="#a855f7" font-size="10" font-family="monospace" font-weight="bold">NOT</text>
+  <line x1="260" y1="66" x2="280" y2="66" stroke="#00d4ff" stroke-width="1.5"/><text x="257" y="69" fill="#94a3b8" font-size="9" font-family="monospace">A</text>
+  <path d="M280,52 L312,66 L280,80 Z" fill="#0f1f35" stroke="#a855f7" stroke-width="1.5"/>
+  <circle cx="316" cy="66" r="4" fill="#0f1f35" stroke="#a855f7" stroke-width="1.5"/>
+  <line x1="320" y1="66" x2="340" y2="66" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#ga)"/>
+  <text x="343" y="69" fill="#00ff88" font-size="9" font-family="monospace">Q</text>
+  <text x="298" y="103" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Q = A'</text>
+  <text x="298" y="115" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="monospace">Inverte: 0↔1</text>
+  <rect x="256" y="130" width="84" height="48" rx="4" fill="#0a0e1a" stroke="#1e3a5f"/>
+  <text x="268" y="143" fill="#a855f7" font-size="8" font-family="monospace">A  | Q</text>
+  <text x="268" y="154" fill="#94a3b8" font-size="8" font-family="monospace">0  | 1 ✓</text>
+  <text x="268" y="165" fill="#94a3b8" font-size="8" font-family="monospace">1  | 0</text>
+  <text x="418" y="34" text-anchor="middle" fill="#f97316" font-size="10" font-family="monospace" font-weight="bold">XOR</text>
+  <line x1="380" y1="58" x2="398" y2="58" stroke="#00d4ff" stroke-width="1.5"/><text x="377" y="61" fill="#94a3b8" font-size="9" font-family="monospace">A</text>
+  <line x1="380" y1="74" x2="398" y2="74" stroke="#00d4ff" stroke-width="1.5"/><text x="377" y="77" fill="#94a3b8" font-size="9" font-family="monospace">B</text>
+  <path d="M399,46 Q406,66 399,86 Q418,86 448,66 Q418,46 399,46 Z" fill="#0f1f35" stroke="#f97316" stroke-width="1.5"/>
+  <path d="M394,48 Q401,66 394,84" fill="none" stroke="#f97316" stroke-width="1.5"/>
+  <line x1="448" y1="66" x2="466" y2="66" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#ga)"/>
+  <text x="469" y="69" fill="#00ff88" font-size="9" font-family="monospace">Q</text>
+  <text x="418" y="103" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Q = A⊕B</text>
+  <text x="418" y="115" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="monospace">Apenas uma=1 → saída 1</text>
+  <rect x="376" y="130" width="84" height="48" rx="4" fill="#0a0e1a" stroke="#1e3a5f"/>
+  <text x="388" y="143" fill="#f97316" font-size="8" font-family="monospace">A B | Q</text>
+  <text x="388" y="154" fill="#94a3b8" font-size="8" font-family="monospace">0 0 | 0</text>
+  <text x="388" y="165" fill="#94a3b8" font-size="8" font-family="monospace">0 1 | 1 ✓</text>
+  <text x="388" y="176" fill="#94a3b8" font-size="8" font-family="monospace">1 1 | 0</text>
+</svg>`,
+
+lutDiagram: `<svg viewBox="0 0 480 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:480px;background:#070c14;border-radius:10px;border:1px solid #1e3a5f">
+  <defs><marker id="la" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#00d4ff"/></marker><marker id="lg" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#00ff88"/></marker></defs>
+  <text x="240" y="18" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" font-weight="bold">Look-Up Table (LUT) — Como o FPGA executa lógica</text>
+  <rect x="170" y="38" width="130" height="130" rx="8" fill="#0f1f35" stroke="#00ff88" stroke-width="2"/>
+  <text x="235" y="58" text-anchor="middle" fill="#00ff88" font-size="10" font-family="monospace" font-weight="bold">LUT-3</text>
+  <text x="235" y="72" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Tabela de Verdade</text>
+  <text x="184" y="90" fill="#94a3b8" font-size="8" font-family="monospace">A B C | Q</text>
+  <line x1="180" y1="93" x2="296" y2="93" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="184" y="105" fill="#94a3b8" font-size="8" font-family="monospace">0 0 0 | 0</text>
+  <text x="184" y="116" fill="#94a3b8" font-size="8" font-family="monospace">0 0 1 | 1</text>
+  <text x="184" y="127" fill="#94a3b8" font-size="8" font-family="monospace">0 1 0 | 0</text>
+  <text x="184" y="138" fill="#00ff88" font-size="8" font-family="monospace">0 1 1 | 1 ← ativo!</text>
+  <text x="184" y="149" fill="#94a3b8" font-size="8" font-family="monospace">1 0 0 | 1</text>
+  <text x="184" y="160" fill="#94a3b8" font-size="8" font-family="monospace">...</text>
+  <line x1="40" y1="85" x2="168" y2="85" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#la)"/>
+  <text x="18" y="88" fill="#94a3b8" font-size="9" font-family="monospace">A=0</text>
+  <line x1="40" y1="103" x2="168" y2="103" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#la)"/>
+  <text x="18" y="106" fill="#94a3b8" font-size="9" font-family="monospace">B=1</text>
+  <line x1="40" y1="121" x2="168" y2="121" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#la)"/>
+  <text x="18" y="124" fill="#94a3b8" font-size="9" font-family="monospace">C=1</text>
+  <line x1="300" y1="103" x2="418" y2="103" stroke="#00ff88" stroke-width="2" marker-end="url(#lg)"/>
+  <text x="424" y="107" fill="#00ff88" font-size="12" font-family="monospace" font-weight="bold">Q=1</text>
+  <text x="340" y="88" text-anchor="middle" fill="#ffd700" font-size="9" font-family="monospace">Resultado</text>
+  <text x="340" y="100" text-anchor="middle" fill="#ffd700" font-size="9" font-family="monospace">instantâneo!</text>
+  <text x="240" y="185" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Com A=0,B=1,C=1 → linha "011" → Q=1. Sem calcular, só consultar a tabela!</text>
+</svg>`,
+
+verilogFlow: `<svg viewBox="0 0 480 210" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:480px;background:#070c14;border-radius:10px;border:1px solid #1e3a5f">
+  <defs><marker id="fa" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L0,8 L8,4 Z" fill="#00d4ff"/></marker></defs>
+  <text x="240" y="18" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" font-weight="bold">Fluxo de Desenvolvimento em FPGA</text>
+  <rect x="15" y="32" width="78" height="48" rx="6" fill="#0f1f35" stroke="#00d4ff" stroke-width="1.5"/>
+  <text x="54" y="52" text-anchor="middle" fill="#00d4ff" font-size="18">📝</text>
+  <text x="54" y="67" text-anchor="middle" fill="#00d4ff" font-size="9" font-family="monospace">Especif.</text>
+  <text x="54" y="77" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">.v file</text>
+  <line x1="93" y1="56" x2="113" y2="56" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#fa)"/>
+  <rect x="113" y="32" width="78" height="48" rx="6" fill="#0f1f35" stroke="#a855f7" stroke-width="1.5"/>
+  <text x="152" y="52" text-anchor="middle" fill="#a855f7" font-size="18">🔬</text>
+  <text x="152" y="67" text-anchor="middle" fill="#a855f7" font-size="9" font-family="monospace">Síntese</text>
+  <text x="152" y="77" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Gowin EDA</text>
+  <line x1="191" y1="56" x2="211" y2="56" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#fa)"/>
+  <rect x="211" y="32" width="78" height="48" rx="6" fill="#0f1f35" stroke="#ffd700" stroke-width="1.5"/>
+  <text x="250" y="52" text-anchor="middle" fill="#ffd700" font-size="18">🗺️</text>
+  <text x="250" y="67" text-anchor="middle" fill="#ffd700" font-size="9" font-family="monospace">P&amp;R</text>
+  <text x="250" y="77" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">.cst pins</text>
+  <line x1="289" y1="56" x2="309" y2="56" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#fa)"/>
+  <rect x="309" y="32" width="78" height="48" rx="6" fill="#0f1f35" stroke="#f97316" stroke-width="1.5"/>
+  <text x="348" y="52" text-anchor="middle" fill="#f97316" font-size="18">⬆️</text>
+  <text x="348" y="67" text-anchor="middle" fill="#f97316" font-size="9" font-family="monospace">Programa</text>
+  <text x="348" y="77" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">.fs → FPGA</text>
+  <line x1="387" y1="56" x2="407" y2="56" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#fa)"/>
+  <rect x="407" y="32" width="58" height="48" rx="6" fill="#1a2a1a" stroke="#00ff88" stroke-width="1.5"/>
+  <text x="436" y="52" text-anchor="middle" fill="#00ff88" font-size="18">✅</text>
+  <text x="436" y="67" text-anchor="middle" fill="#00ff88" font-size="9" font-family="monospace">Teste HW</text>
+  <line x1="152" y1="80" x2="152" y2="104" stroke="#a855f7" stroke-width="1" stroke-dasharray="4"/>
+  <rect x="92" y="104" width="120" height="44" rx="6" fill="#0d0d1a" stroke="#a855f7" stroke-width="1" stroke-dasharray="4"/>
+  <text x="152" y="121" text-anchor="middle" fill="#a855f7" font-size="9" font-family="monospace">🧪 Simulação (iVerilog)</text>
+  <text x="152" y="133" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">iverilog → vvp → GTKWave</text>
+  <text x="152" y="143" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Testbench (.tb.v)</text>
+  <text x="240" y="170" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Fluxo Principal (Hardware Real) — Tang Nano 9K</text>
+  <text x="240" y="183" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Simulação permite testar sem a placa física (recomendado antes de programar!)</text>
+  <rect x="15" y="192" width="100" height="14" rx="3" fill="#0a0e1a" stroke="#1e3a5f"/>
+  <text x="65" y="202" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="monospace">Tang Nano 9K · Gowin GW1NR-9</text>
+</svg>`,
+
+karnaughMap: `<svg viewBox="0 0 480 230" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:480px;background:#070c14;border-radius:10px;border:1px solid #1e3a5f">
+  <text x="240" y="18" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" font-weight="bold">Mapa de Karnaugh — Simplificação de Expressões</text>
+  <text x="145" y="46" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="monospace">C'</text>
+  <text x="195" y="46" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="monospace">C</text>
+  <text x="82" y="73" text-anchor="end" fill="#94a3b8" font-size="9" font-family="monospace">A'B'</text>
+  <text x="82" y="103" text-anchor="end" fill="#94a3b8" font-size="9" font-family="monospace">A'B</text>
+  <text x="82" y="133" text-anchor="end" fill="#94a3b8" font-size="9" font-family="monospace">AB</text>
+  <text x="82" y="163" text-anchor="end" fill="#94a3b8" font-size="9" font-family="monospace">AB'</text>
+  <rect x="88" y="53" width="52" height="28" fill="#0f1f35" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="114" y="72" text-anchor="middle" fill="#00ff88" font-size="14" font-family="monospace" font-weight="bold">1</text>
+  <rect x="140" y="53" width="52" height="28" fill="#0f1f35" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="166" y="72" text-anchor="middle" fill="#00ff88" font-size="14" font-family="monospace" font-weight="bold">1</text>
+  <rect x="88" y="81" width="52" height="28" fill="#0f1f35" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="114" y="100" text-anchor="middle" fill="#00ff88" font-size="14" font-family="monospace" font-weight="bold">1</text>
+  <rect x="140" y="81" width="52" height="28" fill="#0f1f35" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="166" y="100" text-anchor="middle" fill="#4a5568" font-size="14" font-family="monospace" font-weight="bold">0</text>
+  <rect x="88" y="109" width="52" height="28" fill="#0f1f35" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="114" y="128" text-anchor="middle" fill="#00ff88" font-size="14" font-family="monospace" font-weight="bold">1</text>
+  <rect x="140" y="109" width="52" height="28" fill="#0f1f35" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="166" y="128" text-anchor="middle" fill="#4a5568" font-size="14" font-family="monospace" font-weight="bold">0</text>
+  <rect x="88" y="137" width="52" height="28" fill="#0f1f35" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="114" y="156" text-anchor="middle" fill="#4a5568" font-size="14" font-family="monospace" font-weight="bold">0</text>
+  <rect x="140" y="137" width="52" height="28" fill="#0f1f35" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="166" y="156" text-anchor="middle" fill="#4a5568" font-size="14" font-family="monospace" font-weight="bold">0</text>
+  <rect x="90" y="55" width="50" height="82" rx="6" fill="none" stroke="#00d4ff" stroke-width="2.5" stroke-dasharray="6,3"/>
+  <text x="44" y="90" fill="#00d4ff" font-size="9" font-family="monospace">grupo A'</text>
+  <text x="44" y="101" fill="#00d4ff" font-size="9" font-family="monospace">elimina B,C</text>
+  <rect x="90" y="55" width="102" height="28" rx="4" fill="none" stroke="#ffd700" stroke-width="2" stroke-dasharray="5,3" opacity="0.7"/>
+  <text x="44" y="120" fill="#ffd700" font-size="9" font-family="monospace">grupo B'</text>
+  <text x="240" y="65" fill="#94a3b8" font-size="9" font-family="monospace">Tabela Verdade:</text>
+  <text x="240" y="78" fill="#94a3b8" font-size="8" font-family="monospace">A B C → X</text>
+  <text x="240" y="90" fill="#94a3b8" font-size="8" font-family="monospace">0 0 0 → 1</text>
+  <text x="240" y="101" fill="#94a3b8" font-size="8" font-family="monospace">0 0 1 → 1</text>
+  <text x="240" y="112" fill="#94a3b8" font-size="8" font-family="monospace">0 1 0 → 1</text>
+  <text x="240" y="123" fill="#94a3b8" font-size="8" font-family="monospace">0 1 1 → 0</text>
+  <text x="240" y="134" fill="#94a3b8" font-size="8" font-family="monospace">1 0 0 → 1</text>
+  <text x="240" y="145" fill="#94a3b8" font-size="8" font-family="monospace">1 0 1 → 0</text>
+  <text x="240" y="156" fill="#94a3b8" font-size="8" font-family="monospace">1 1 x → 0</text>
+  <rect x="330" y="88" width="132" height="58" rx="6" fill="#0f1f35" stroke="#ffd700" stroke-width="1.5"/>
+  <text x="396" y="106" text-anchor="middle" fill="#ffd700" font-size="9" font-family="monospace">Resultado:</text>
+  <text x="396" y="122" text-anchor="middle" fill="#ffd700" font-size="11" font-family="monospace" font-weight="bold">X = A' + B'C'</text>
+  <text x="396" y="137" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Sem K-map: 5 termos!</text>
+  <text x="240" y="190" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Regra: agrupe 1s em potências de 2 (pares, quartetos, octetos). Grupos maiores = expressão menor!</text>
+  <text x="240" y="202" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Variáveis que aparecem complementadas E não-complementadas no grupo são eliminadas.</text>
+  <text x="240" y="218" text-anchor="middle" fill="#4a5568" font-size="8" font-family="monospace">Procedimento: tabela verdade → mapa K → grupos → soma de produtos simplificada</text>
+</svg>`,
+
+verilogModule: `<svg viewBox="0 0 480 215" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:480px;background:#070c14;border-radius:10px;border:1px solid #1e3a5f">
+  <defs><marker id="ma" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#00d4ff"/></marker></defs>
+  <text x="240" y="18" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" font-weight="bold">Anatomia de um Módulo Verilog</text>
+  <rect x="135" y="30" width="205" height="162" rx="8" fill="#0f1f35" stroke="#a855f7" stroke-width="2"/>
+  <rect x="135" y="30" width="205" height="24" rx="8" fill="#1a0a2a"/>
+  <text x="237" y="46" text-anchor="middle" fill="#a855f7" font-size="9" font-family="monospace" font-weight="bold">module and_gate(</text>
+  <text x="148" y="67" fill="#00d4ff" font-size="9" font-family="monospace">  input wire x1,</text>
+  <text x="148" y="82" fill="#00d4ff" font-size="9" font-family="monospace">  input wire x2,</text>
+  <text x="148" y="97" fill="#f97316" font-size="9" font-family="monospace">  output wire z1</text>
+  <text x="148" y="112" fill="#a855f7" font-size="9" font-family="monospace">);</text>
+  <line x1="143" y1="116" x2="334" y2="116" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="148" y="132" fill="#ffd700" font-size="9" font-family="monospace">  assign z1 = x1 &amp; x2;</text>
+  <line x1="143" y1="138" x2="334" y2="138" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="148" y="153" fill="#a855f7" font-size="9" font-family="monospace">endmodule</text>
+  <line x1="28" y1="71" x2="133" y2="71" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#ma)"/>
+  <text x="23" y="74" text-anchor="end" fill="#00d4ff" font-size="9" font-family="monospace">x1</text>
+  <line x1="28" y1="86" x2="133" y2="86" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#ma)"/>
+  <text x="23" y="89" text-anchor="end" fill="#00d4ff" font-size="9" font-family="monospace">x2</text>
+  <line x1="340" y1="112" x2="440" y2="112" stroke="#f97316" stroke-width="1.5" marker-end="url(#ma)"/>
+  <text x="445" y="115" fill="#f97316" font-size="9" font-family="monospace">z1</text>
+  <rect x="18" y="168" width="110" height="32" rx="4" fill="#0a0e1a" stroke="#1e3a5f"/>
+  <text x="73" y="181" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="monospace">input = sinal que</text>
+  <text x="73" y="192" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="monospace">entra no módulo</text>
+  <rect x="348" y="168" width="115" height="32" rx="4" fill="#0a0e1a" stroke="#1e3a5f"/>
+  <text x="405" y="181" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="monospace">output = resultado</text>
+  <text x="405" y="192" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="monospace">do módulo</text>
+  <rect x="148" y="165" width="172" height="20" rx="4" fill="#1a1500" stroke="#ffd700" stroke-width="1"/>
+  <text x="234" y="178" text-anchor="middle" fill="#ffd700" font-size="8" font-family="monospace">assign = conexão contínua (hardware!)</text>
+</svg>`,
+
+flipFlopD: `<svg viewBox="0 0 480 195" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:480px;background:#070c14;border-radius:10px;border:1px solid #1e3a5f">
+  <defs><marker id="ffa" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#00d4ff"/></marker></defs>
+  <text x="240" y="18" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" font-weight="bold">Flip-Flop D — Elemento de Memória Sequencial</text>
+  <rect x="155" y="38" width="165" height="128" rx="8" fill="#0f1f35" stroke="#14b8a6" stroke-width="2"/>
+  <text x="237" y="60" text-anchor="middle" fill="#14b8a6" font-size="12" font-family="monospace" font-weight="bold">FF-D</text>
+  <text x="165" y="88" fill="#00d4ff" font-size="9" font-family="monospace">D</text>
+  <text x="165" y="113" fill="#ffd700" font-size="9" font-family="monospace">CLK ▷</text>
+  <text x="165" y="138" fill="#f97316" font-size="9" font-family="monospace">RST</text>
+  <text x="308" y="88" fill="#00ff88" font-size="9" font-family="monospace">Q</text>
+  <text x="302" y="113" fill="#94a3b8" font-size="9" font-family="monospace">Q'</text>
+  <line x1="35" y1="85" x2="153" y2="85" stroke="#00d4ff" stroke-width="1.5" marker-end="url(#ffa)"/>
+  <text x="30" y="88" text-anchor="end" fill="#00d4ff" font-size="9" font-family="monospace">D</text>
+  <line x1="35" y1="110" x2="153" y2="110" stroke="#ffd700" stroke-width="1.5" marker-end="url(#ffa)"/>
+  <text x="30" y="113" text-anchor="end" fill="#ffd700" font-size="9" font-family="monospace">CLK</text>
+  <line x1="35" y1="135" x2="153" y2="135" stroke="#f97316" stroke-width="1.5" marker-end="url(#ffa)"/>
+  <text x="30" y="138" text-anchor="end" fill="#f97316" font-size="9" font-family="monospace">RST</text>
+  <line x1="320" y1="85" x2="438" y2="85" stroke="#00ff88" stroke-width="1.5" marker-end="url(#ffa)"/>
+  <text x="443" y="88" fill="#00ff88" font-size="9" font-family="monospace">Q</text>
+  <line x1="320" y1="110" x2="438" y2="110" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ffa)"/>
+  <text x="443" y="113" fill="#94a3b8" font-size="9" font-family="monospace">Q'</text>
+  <rect x="35" y="153" width="410" height="34" rx="4" fill="#0a0e1a" stroke="#1e3a5f"/>
+  <text x="42" y="166" fill="#ffd700" font-size="8" font-family="monospace">CLK:</text>
+  <polyline points="68,176 85,176 85,162 100,162 100,176 115,176 115,162 130,162 130,176 145,176 145,162 160,162 160,176 175,176" fill="none" stroke="#ffd700" stroke-width="1.5"/>
+  <text x="182" y="165" fill="#94a3b8" font-size="8" font-family="monospace">↑ Na borda de subida: D capturado → Q</text>
+  <text x="182" y="177" fill="#4a5568" font-size="7" font-family="monospace">RST=1 → Q=0 (reset); enable=1 → freeze estado atual</text>
+</svg>`
+};
+const MODULES = [
+// ═══════════════════════════════════════════════════════════
+// MÓDULO 1 — FPGA: O que é e por que usar
+// ═══════════════════════════════════════════════════════════
+{
+  id:1, title:"FPGA — O que é e por que usar", subtitle:"Etapa 1 · Aulas 1 e 2",
+  color:"#00d4ff", icon:"⬡",
+  sources:["Aula 1 (15/04)","Aula 2 (16/04)","Slides Etapa 1"],
+  sections:[
+    {id:"m1s1", icon:"🧠", title:"O que significa FPGA?",
+     content:[
+      {type:"intro", text:"FPGA significa Field Programmable Gate Array — arranjo programável de portas lógicas. Imagine um quadro branco gigante de chips eletrônicos onde você decide como as peças se conectam. Diferente de um Arduino (cujos circuitos internos são fixos de fábrica), o FPGA é uma tela em branco: você escreve código Verilog e, literalmente, reconfigura o hardware."},
+      {type:"text", text:"O professor Daniel explicou: 'O FPGA é como uma tela em branco. Você pode fazer qualquer coisa com ele. O que vai estar limitado à tua imaginação.' Isso é radicalmente diferente de um Arduino, onde você dá instruções que são executadas sequencialmente por um processador fixo."},
+      {type:"diagram", svg:"fpgaStructure"},
+      {type:"highlight", title:"Definição técnica:", items:[
+        "FPGA = arranjo (array) de portas lógicas (AND, OR, NOT...) que são programáveis",
+        "HDL (Hardware Description Language) como Verilog define como as portas se interconectam",
+        "A configuração fica em memória SRAM — por isso some ao desligar (a menos que use Flash)",
+        "O Tang Nano 9K usa o chip Gowin GW1NR-9 com 8640 LUTs e 6480 flip-flops"
+      ]},
+      {type:"history", title:"📖 Breve história (Slides Etapa 1):", text:"O primeiro FPGA foi o Xilinx XC2064 (anos 80) com apenas 800 portas lógicas — suficiente para comparações simples. Antes dele, precisava-se de luz ultravioleta para resetar chips. O XC2064 foi revolucionário porque gravava a configuração em memória externa. Para comparar: um FPGA profissional atual pode ter 142.000+ componentes lógicos — e custa ~$4.000 USD."}
+    ]},
+    {id:"m1s2", icon:"⚡", title:"FPGA vs. Microcontrolador vs. ASIC",
+     content:[
+      {type:"intro", text:"Existem três grandes famílias de chips para lógica digital. Escolher entre elas depende fundamentalmente de custo e flexibilidade. Entender essa comparação é essencial para qualquer engenheiro de sistemas embarcados."},
+      {type:"text", text:"Analogia perfeita do professor: imagine criar um sistema de irrigação automática de plantas. O Arduino faz isso com facilidade, baixo custo e é fácil de programar em C. Agora imagine fazer com FPGA — custaria muito mais, seria trabalhoso, sem nenhuma vantagem. Isso não quer dizer que FPGA é superior: cada ferramenta tem seu lugar."},
+      {type:"table", headers:["Característica","FPGA","Microcontrolador","ASIC"],
+       rows:[
+        ["Custo (pouca qtd)","Moderado","Baixo","Altíssimo"],
+        ["Custo (muita qtd)","Moderado","Baixo","Baixo"],
+        ["Velocidade","Alta","Moderada","Altíssima"],
+        ["Energia","Moderada","Baixa","Baixa"],
+        ["Flexibilidade","Alta","Baixa","Zero"],
+        ["Facilidade de uso","Moderada","Alta","Baixa"],
+        ["Paralelismo","Máximo","Limitado","Máximo"],
+        ["Exemplo","Tang Nano, Xilinx","Arduino, ESP32","Intel CPU, GPU NVIDIA"]
+      ]},
+      {type:"highlight", title:"Quando usar cada um:", items:[
+        "🔵 FPGA: processamento paralelo massivo, baixa latência (trading HFT, radar, 5G, IA embarcada)",
+        "🟢 Microcontrolador: volume alto (IoT, automação residencial, sensores, produtos comerciais)",
+        "🟡 ASIC: produção de MILHÕES de unidades do mesmo chip (processadores celular, GPUs)"
+      ]}
+    ]},
+    {id:"m1s3", icon:"🔢", title:"Classificação de Circuitos Integrados",
+     content:[
+      {type:"intro", text:"Circuito Integrado (CI) é o nome técnico para 'chip'. FPGAs se encaixam numa categoria baseada na quantidade de portas lógicas. Essa classificação ajuda a entender a evolução histórica."},
+      {type:"highlight", title:"Escalas de integração (Slides Etapa 1):", items:[
+        "SSI (Small-Scale Integration): dezenas de portas — circuitos booleanos simples",
+        "MSI (Medium-Scale Integration): centenas de portas — comparadores, somadores, primeiro FPGA (Xilinx XC2064 com 800 portas)",
+        "LSI (Large-Scale Integration): milhares de portas — sistemas lógicos completos",
+        "VLSI (Very Large-Scale Integration): centenas de milhares a bilhões — processadores Intel/AMD atuais em 4nm"
+      ]},
+      {type:"text", text:"O professor explicou: o FPGA de laboratório que ele trouxe estava em 65nm com ~142.000 componentes. Um processador Ryzen/Intel atual está em 4nm com bilhões de transistores. E o mais espantoso: esses processadores foram projetados e testados em FPGAs antes de irem para a fábrica (TSMC)."}
+    ]},
+    {id:"m1s4", icon:"📡", title:"Onde os FPGAs são usados no mercado",
+     content:[
+      {type:"intro", text:"FPGAs são usados onde velocidade e paralelismo são inegociáveis. Não são para hobby — são para infraestrutura crítica e alta performance."},
+      {type:"examples", items:[
+        {icon:"📈", label:"Mercado Financeiro (HFT)", desc:"High-Frequency Trading — o FPGA executa algoritmos de compra/venda em nanossegundos, eliminando latência. Um microssegundo de atraso pode significar perder uma operação bilionária."},
+        {icon:"🛡️", label:"Defesa e Militar", desc:"Radares, mísseis, submarinos, aviões de combate. A empresa Mecatron (brasileira) usava VHDL para sistemas de radar. Aplicações onde falhas têm consequências fatais."},
+        {icon:"🚀", label:"Indústria Aeroespacial (NASA)", desc:"Fora da atmosfera, elétrons de radiação solar podem corromper memória SRAM. A NASA usa FPGAs 'hardened' (resistentes à radiação) para controle de satélites."},
+        {icon:"🤖", label:"Inteligência Artificial", desc:"Redes neurais precisam de operações matriciais em paralelo massivo. FPGAs implementam aceleradoras personalizadas — mais eficientes energeticamente que GPUs para inferência."},
+        {icon:"📶", label:"Telecomunicações (5G)", desc:"Torres de celular processam sinais de milhares de usuários simultaneamente. O FPGA faz DSP em paralelo com frequências de GHz."}
+      ]},
+      {type:"text", text:"Denominador comum: alta largura de banda, baixa latência e alta capacidade de processamento paralelo. Se sua aplicação não precisa de pelo menos um desses três, um microcontrolador provavelmente atende melhor."}
+    ]},
+    {id:"m1s5", icon:"💻", title:"Verilog vs. VHDL — As linguagens do FPGA",
+     content:[
+      {type:"intro", text:"Para programar um FPGA, não se usa Python nem C. Usa-se uma HDL (Hardware Description Language) — uma linguagem que descreve circuitos, não sequências de instruções. As duas principais são Verilog e VHDL."},
+      {type:"text", text:"O professor: 'Verilog é para FPGA o que Python é para software — mais conciso, mais fácil de começar. VHDL é como Java — muito verboso, mais rígido.' Na dúvida, vai pro Verilog. VHDL é mais usado em defesa (radar, mísseis) por ser mais formal e typesafe."},
+      {type:"highlight", title:"Diferença fundamental entre HDL e linguagem de software:", items:[
+        "Software (Python/C): descreve instruções executadas UMA POR UMA pelo processador",
+        "Verilog/VHDL: descreve CONEXÕES — o hardware fica ativo em paralelo o tempo todo",
+        "Em Verilog, 'assign z = x & y' não é uma instrução — é um fio que conecta x, y e z permanentemente",
+        "Não existe 'execução': é como se todos os fios elétricos existissem simultaneamente"
+      ]},
+      {type:"code", lang:"verilog", label:"Somador em Verilog (hardware paralelo):", code:`// Módulo somador — isso é hardware, não software!
+// Todas as conexões existem ao mesmo tempo
+module somador(
+  input  wire [3:0] a,     // número de 4 bits
+  input  wire [3:0] b,     // número de 4 bits
+  output wire [3:0] soma   // resultado de 4 bits
+);
+  assign soma = a + b;  // conexão contínua, não "execução"
+endmodule`},
+      {type:"code", lang:"c", label:"Equivalente em C (software sequencial):", code:`// Em C, executa passo a passo — leva N ciclos
+// Para somar 0+1+2+...+9:
+int soma = 0;
+for(int i = 0; i <= 9; i++) { // 10 ciclos sequenciais
+  soma += i;  // O(N)
+}
+// Em FPGA com árvore paralela: O(log2 N) ≈ 3,17 ciclos!`},
+      {type:"text", text:"Esse exemplo do professor é poderoso: para somar de 0 a 9 em C são 10 operações sequenciais. Em FPGA, com árvore de somadores paralelos (0+1 ao mesmo tempo que 2+3, 4+5, etc.) chega-se ao resultado em log₂(9) ≈ 3,17 ciclos."}
+    ]}
+  ],
+  questions:[
+    {type:"mc", q:"O que significa a sigla FPGA?", opts:["Fast Programmable Gate Array","Field Programmable Gate Array","Fully Programmable Gate Array","Fixed Programmable Gate Array"], correct:1, explain:"FPGA = Field Programmable Gate Array. 'Field' indica que a programação ocorre 'no campo' (em uso), não na fábrica."},
+    {type:"mc", q:"Qual a principal vantagem do FPGA sobre o microcontrolador em termos de execução?", opts:["Menor custo","Execução paralela de operações","Facilidade de programação","Menor consumo de energia"], correct:1, explain:"O FPGA executa tudo em paralelo. Um microcontrolador executa instruções sequencialmente."},
+    {type:"mc", q:"O que acontece com a configuração do FPGA quando a energia é desligada (modo SRAM)?", opts:["Fica gravada permanentemente","É perdida — precisa ser recarregada","É salva em cartão SD automaticamente","É transmitida por WiFi para backup"], correct:1, explain:"FPGAs usam SRAM internamente — volátil (some ao desligar). Para persistir, usa-se Flash externa ou modo embFlash."},
+    {type:"mc", q:"Qual linguagem o professor Daniel Vidal recomenda para iniciantes em FPGA?", opts:["VHDL","SystemVerilog","Verilog","MyHDL (Python)"], correct:2, explain:"O professor: 'Na dúvida, vai pro Verilog.' É menos verboso que VHDL e mais amplamente usado na indústria."},
+    {type:"mc", q:"Qual classificação de CI inclui bilhões de componentes (processadores Intel/AMD atuais)?", opts:["SSI","MSI","LSI","VLSI"], correct:3, explain:"VLSI (Very Large-Scale Integration) vai de centenas de milhares a bilhões. Os processadores em 4nm se encaixam aqui."},
+    {type:"mc", q:"Em qual aplicação o FPGA é tipicamente MAIS vantajoso que o Arduino?", opts:["Irrigação automática de plantas","Roteador Wi-Fi doméstico","Processamento de radar em tempo real","LED piscando periodicamente"], correct:2, explain:"Radares exigem processamento de sinal em altíssima velocidade com baixa latência — o ponto forte do FPGA."},
+    {type:"mc", q:"O que é um ASIC?", opts:["Um FPGA sem reprogramação","Um microcontrolador ARM","Um CI projetado para uso específico, sem reprogramação","Uma linguagem HDL da Altera"], correct:2, explain:"ASIC (Application-Specific Integrated Circuit) é um CI para uma única função. É desenvolvido no FPGA, testado, depois enviado para fábrica (fab/TSMC) para produção em massa."},
+    {type:"mc", q:"Qual chip FPGA está na placa Tang Nano 9K usada no curso?", opts:["Xilinx Artix-7","Intel Cyclone IV","Gowin GW1NR-9","Altera MAX 10"], correct:2, explain:"A Tang Nano 9K usa o chip Gowin GW1NR-9, fabricado pela Gowin Semiconductor. Configurado pelo Gowin EDA."},
+    {type:"mc", q:"Em Verilog, o que o comando 'assign z = x & y;' representa?", opts:["Uma instrução que executa quando chamada","Uma função que retorna x AND y","Uma conexão contínua de hardware — um fio permanente x AND y = z","Uma variável que armazena x AND y temporariamente"], correct:2, explain:"Em Verilog, assign cria uma conexão de hardware contínua. Não é uma instrução sequencial — é literalmente um fio que conecta permanentemente x, y e z com lógica AND."},
+    {type:"mc", q:"Por que FPGAs são usados em missões espaciais (NASA)?", opts:["São mais baratos que microcontroladores","Podem ser reprogramados em órbita via WiFi","Possuem versões resistentes à radiação (radiation-hardened)","Consomem menos energia que qualquer outro chip"], correct:2, explain:"Fora da atmosfera, elétrons de radiação solar podem corromper SRAM. FPGAs 'hardened' têm proteção especial contra esses efeitos."},
+    {type:"mc", q:"Se você somar de 0 a 9 em paralelo com árvore de somadores no FPGA, qual a complexidade?", opts:["O(N) = 9 ciclos","O(N²) = 81 ciclos","O(log₂N) ≈ 3,17 ciclos","O(1) = 1 ciclo"], correct:2, explain:"Com soma em árvore paralela, a complexidade cai para O(log₂N). Para N=9, log₂(9) ≈ 3,17 ciclos — muito mais rápido que o loop sequencial."},
+    {type:"code", q:"Escreva um módulo Verilog básico chamado 'inversor' com 1 entrada 'a' e 1 saída 'y', onde y é o inverso de a.", check:[/module\s+inversor/,/input\s+(wire\s+)?a/,/output\s+(wire\s+)?y/,/assign\s+y\s*=\s*~a/,/endmodule/], explain:"Um inversor (porta NOT): define o módulo com as portas e usa assign com o operador ~ para inversão."},
+    {type:"text", q:"Explique com suas próprias palavras por que o FPGA é comparado a uma 'tela em branco', e um microcontrolador não.", minWords:20, explain:"O FPGA não tem função fixa — o usuário define os circuitos internos via Verilog, reconfigurando a lógica. O microcontrolador tem hardware fixo de fábrica — o usuário só pode programar o que já existe."},
+    {type:"mc", q:"Qual empresa fabrica o chip da Tang Nano 9K?", opts:["Xilinx (AMD)","Intel (Altera)","Gowin Semiconductor","Lattice Semiconductor"], correct:2, explain:"A Tang Nano 9K usa chips Gowin Semiconductor. O software de desenvolvimento é o Gowin EDA."},
+    {type:"mc", q:"Por que a maioria dos projetos de eletrônica usa microcontroladores e não FPGAs?", opts:["FPGAs não suportam WiFi","Microcontroladores são mais baratos, fáceis de usar e consomem menos energia","FPGAs não podem ser programados em C","Microcontroladores são mais rápidos"], correct:1, explain:"'Microcontroladores dominam os dispositivos eletrônicos por serem mais baratos, fáceis de usar e consumirem menos energia' — slides Etapa 1."},
+    {type:"text", q:"O que é um ASIC? Qual é a relação entre FPGA e ASIC no processo de desenvolvimento de chips?", minWords:25, explain:"ASIC é um CI para função específica. O FPGA é usado para desenvolver e testar o design — depois, o projeto é enviado para uma fábrica (fab como TSMC) que produz o ASIC. O FPGA permite iterações rápidas antes do custo alto de produzir um ASIC."},
+    {type:"mc", q:"O que é paralelismo em hardware FPGA?", opts:["Executar múltiplos programas no mesmo processador","Múltiplos circuitos funcionando simultaneamente, sem compartilhar clock","Dividir uma tarefa em threads de software","Usar múltiplos núcleos ARM"], correct:1, explain:"No FPGA, diferentes partes do circuito operam verdadeiramente em paralelo — não é multithreading de software, mas hardware distinto funcionando ao mesmo tempo."},
+    {type:"mc", q:"Em Verilog, qual palavra-chave indica que um sinal é uma 'saída' do módulo?", opts:["out","return","output","export"], correct:2, explain:"A palavra-chave 'output' declara uma porta de saída. A declaração completa é: 'output wire nome_sinal;'"},
+    {type:"code", q:"Escreva um módulo Verilog chamado 'and_gate' com 2 entradas (a, b) e 1 saída (y) que calcula y = a AND b.", check:[/module\s+and_gate/,/input\s+(wire\s+)?a/,/input\s+(wire\s+)?b/,/output\s+(wire\s+)?y/,/assign\s+y\s*=\s*a\s*&\s*b/,/endmodule/], explain:"Porta AND: duas entradas (input), uma saída (output), e assign usando o operador & para AND."},
+    {type:"text", q:"Por que a VLSI é a categoria dos processadores modernos e o que diferencia ela da LSI?", minWords:20, explain:"VLSI (Very Large-Scale Integration) contém de centenas de milhares a bilhões de componentes — escala dos processadores modernos. LSI continha milhares. A diferença é a densidade de integração, permitida pela evolução dos processos de fabricação (65nm → 4nm)."}
+  ]
+},
+// ═══════════════════════════════════════════════════════════
+// MÓDULO 2 — Lógica Digital e Álgebra Booleana
+// ═══════════════════════════════════════════════════════════
+{
+  id:2, title:"Lógica Digital e Álgebra Booleana", subtitle:"Etapa 2 · Aulas 3 e 4",
+  color:"#00ff88", icon:"⊕",
+  sources:["Aula 3 (22/04)","Aula 4 (29/04)","Slides Etapa 2"],
+  sections:[
+    {id:"m2s1", icon:"🔢", title:"Álgebra Booleana — A matemática dos chips",
+     content:[
+      {type:"intro", text:"George Boole, no século XIX, criou um sistema matemático onde só existem dois valores: verdadeiro (1) e falso (0). Parecia filosofia pura. Décadas depois, Claude Shannon percebeu que essa álgebra descrevia perfeitamente o comportamento de interruptores elétricos. Nasceu a lógica digital — e com ela, toda a computação moderna."},
+      {type:"text", text:"Em eletrônica digital, 1 (verdadeiro) equivale a ~5V (alta tensão) e 0 (falso) equivale a 0V. Cada fio do FPGA está sempre num desses dois estados. A álgebra booleana descreve matematicamente como esses sinais se combinam para produzir resultados."},
+      {type:"highlight", title:"Axiomas fundamentais (Slides Etapa 5):", items:[
+        "Axioma 1 — Definição: B = {0, 1}. Só dois elementos existem.",
+        "Axioma 3 — Identidade: 0 + x = x e 1 · x = x (0 neutro na adição, 1 neutro na multiplicação)",
+        "Axioma 4 — Comutatividade: A + B = B + A e A · B = B · A (ordem não importa)",
+        "Axioma 7 — Complemento: x + x' = 1 e x · x' = 0"
+      ]},
+      {type:"highlight", title:"Teoremas importantes:", items:[
+        "Idempotência: x + x = x e x · x = x (repetir não muda o resultado)",
+        "Absorção I: x + (x · y) = x (absorve o produto)",
+        "Absorção II: x + (x' · y) = x + y (elimina variável redundante)",
+        "De Morgan: (A + B)' = A' · B' e (A · B)' = A' + B'"
+      ]},
+      {type:"highlight", title:"Ordem de operações (precedência):", items:[
+        "1º Parênteses ()",
+        "2º NOT (negação, operador ')",
+        "3º AND (multiplicação, operador · ou *)",
+        "4º XOR (ou-exclusivo, operador ⊕)",
+        "5º OR (adição, operador +)"
+      ]}
+    ]},
+    {id:"m2s2", icon:"🚪", title:"Portas Lógicas — Os tijolos do hardware",
+     content:[
+      {type:"intro", text:"Uma porta lógica é um dispositivo eletrônico que recebe sinais (0V ou 5V) nas entradas, realiza uma operação booleana e produz um sinal na saída. São os tijolos fundamentais com que qualquer circuito digital é construído — de um inversor simples ao processador mais complexo."},
+      {type:"diagram", svg:"logicGates"},
+      {type:"text", text:"No FPGA, 'portas' não existem fisicamente — são implementadas pelas LUTs (Look-Up Tables), que podem simular qualquer combinação de portas. Uma LUT-4 pode implementar qualquer função booleana de até 4 entradas."},
+      {type:"highlight", title:"As 7 portas fundamentais (Slides Etapa 2):", items:[
+        "AND (·): saída 1 apenas quando TODAS as entradas são 1 — 'todas as condições'",
+        "OR (+): saída 1 quando PELO MENOS UMA entrada é 1 — 'qualquer condição'",
+        "NOT ('): inverte — 1 vira 0 e 0 vira 1 — única porta com 1 entrada",
+        "XOR (⊕): saída 1 quando EXATAMENTE UMA entrada é 1 — 'ou exclusivo'",
+        "NAND: AND seguido de NOT — inverso da AND. Porta universal!",
+        "NOR: OR seguido de NOT — inverso da OR. Também universal!",
+        "XNOR: inverso da XOR — saída 1 quando entradas são iguais"
+      ]},
+      {type:"text", text:"Portas NAND e NOR são chamadas 'universais' porque você pode construir qualquer outra porta lógica usando apenas NAND (ou apenas NOR). Isso é explorado no design de chips para simplificar a fabricação — um único tipo de porta para construir tudo."}
+    ]},
+    {id:"m2s3", icon:"📊", title:"Tabela Verdade e Expressões Booleanas",
+     content:[
+      {type:"intro", text:"A tabela verdade é o mapa completo de comportamento de um circuito: lista todas as combinações possíveis de entradas e o valor de saída correspondente. É a 'especificação' formal de qualquer porta ou circuito lógico."},
+      {type:"text", text:"A tabela verdade é ordenada de forma crescente, usando decimais. A primeira linha corresponde ao decimal 0 (em binário de 2 bits: 00). Em seguida vem 1 (binário: 01), depois 2 (10), 3 (11) — e assim por diante. Para N entradas, há 2^N linhas na tabela."},
+      {type:"example", title:"Exemplo: Equação Q = A · B + A'", body:`Aplicando precedência (AND antes de OR):
+• Calcule A' (NOT de A) primeiro
+• Calcule A · B (AND)
+• Calcule (A · B) + A' (OR)
+
+A B | A' | A·B | Q
+0 0 |  1  |  0  | 0+1=1
+0 1 |  1  |  0  | 0+1=1
+1 0 |  0  |  0  | 0+0=0
+1 1 |  0  |  1  | 1+0=1`},
+      {type:"text", text:"Expressões booleanas combinam portas para descrever sistemas mais complexos. A partir de qualquer tabela verdade, é possível derivar uma expressão booleana: para cada linha com saída 1, escreva o mintermo (produto das variáveis) e some todos eles — isso é chamado de Soma de Mintermos ou SOP (Sum of Products)."}
+    ]},
+    {id:"m2s4", icon:"🔍", title:"Look-Up Tables (LUTs) — Como o FPGA executa lógica",
+     content:[
+      {type:"intro", text:"Não existem portas lógicas físicas dentro dos FPGAs! Em vez disso, são usadas Look-Up Tables (LUTs). Uma LUT é essencialmente uma tabela verdade pré-calculada armazenada em memória. Quando as entradas chegam, o FPGA simplesmente 'consulta' o resultado — instantaneamente."},
+      {type:"diagram", svg:"lutDiagram"},
+      {type:"highlight", title:"Como uma LUT funciona:", items:[
+        "Uma LUT-3 tem 3 entradas → 2³ = 8 linhas na tabela interna",
+        "Cada linha armazena o valor de saída Q para aquela combinação de entradas",
+        "Com A=0, B=1, C=1 → endereço '011' (binário) → consulta a posição 3 → resultado instantâneo",
+        "A LUT pode representar QUALQUER equação booleana com 3 entradas!",
+        "O Tang Nano 9K tem 8640 LUTs de 4 entradas — capacidade enorme!"
+      ]},
+      {type:"text", text:"Isso é genial: em vez de criar circuito físico para cada equação lógica, o FPGA usa memória. Uma única LUT-4 pode implementar qualquer função booleana de 4 variáveis — AND, OR, XNOR, MUX, tudo. Para equações com mais entradas, múltiplas LUTs são interligadas."},
+      {type:"code", lang:"verilog", label:"Exemplo: equação Q = A + (B' · C) em Verilog", code:`module exemplo_lut(
+  input wire a, b, c,
+  output wire q
+);
+  wire b_neg;         // wire intermediário
+  assign b_neg = ~b;  // NOT de B
+  assign q = a | (b_neg & c);  // Q = A + (B' · C)
+endmodule
+// O sintetizador Gowin EDA automaticamente
+// mapeia isso para uma única LUT-3!`}
+    ]}
+  ],
+  questions:[
+    {type:"mc", q:"Qual o valor de Q na expressão Q = A + B quando A=0 e B=0?", opts:["0","1","Indefinido","X"], correct:0, explain:"Porta OR: Q=1 apenas quando pelo menos uma entrada é 1. Com A=0 e B=0, Q=0."},
+    {type:"mc", q:"Qual o valor de Q na expressão Q = A · B quando A=1 e B=1?", opts:["0","1","Indefinido","X"], correct:1, explain:"Porta AND: Q=1 apenas quando TODAS as entradas são 1. Com A=1 e B=1, Q=1."},
+    {type:"mc", q:"Qual é a ordem correta de operações na álgebra booleana?", opts:["NOT → AND → OR → XOR","() → NOT → AND → XOR → OR","AND → OR → NOT","OR → AND → NOT → ()"], correct:1, explain:"A precedência é: Parênteses → NOT → AND → XOR → OR. Exatamente como nos slides da Etapa 2."},
+    {type:"mc", q:"O que afirma o Teorema de De Morgan para uma soma: (A + B)'?", opts:["A' + B'","A' · B'","A · B","A + B"], correct:1, explain:"De Morgan: (A + B)' = A' · B'. Negar uma soma equivale a multiplicar as negações. Muito usado para simplificar expressões com NAND/NOR."},
+    {type:"mc", q:"Quantas linhas tem uma tabela verdade com 3 entradas (A, B, C)?", opts:["3","6","8","16"], correct:2, explain:"Com N entradas, há 2^N combinações. Para N=3: 2³ = 8 linhas."},
+    {type:"mc", q:"O que é uma LUT no contexto de FPGAs?", opts:["Uma lista de tarefas de hardware","Uma Look-Up Table — tabela verdade pré-calculada em memória","Um tipo especial de flip-flop","Um barramento de comunicação"], correct:1, explain:"LUT = Look-Up Table. É uma tabela verdade armazenada em memória. Quando as entradas chegam, o FPGA consulta o resultado instantaneamente, sem calcular."},
+    {type:"mc", q:"Quantas LUTs de 4 entradas tem o Tang Nano 9K?", opts:["640","1200","8640","20000"], correct:2, explain:"O Tang Nano 9K (chip Gowin GW1NR-9) tem 8640 LUTs de 4 entradas, além de 6480 flip-flops."},
+    {type:"mc", q:"Qual porta lógica é chamada de 'universal'?", opts:["AND","OR","NAND","XOR"], correct:2, explain:"NAND (e também NOR) é chamada 'universal' porque com ela você pode construir qualquer outra porta lógica — AND, OR, NOT, XOR, etc. Isso simplifica a fabricação de chips."},
+    {type:"mc", q:"Qual o resultado de x + x' na álgebra booleana (Axioma do Complemento)?", opts:["0","x","1","Indefinido"], correct:2, explain:"Axioma 7 — Complemento: x + x' = 1. Uma variável somada com sua negação sempre resulta em 1."},
+    {type:"mc", q:"Na porta XOR, qual é o valor de Q quando A=1 e B=1?", opts:["0","1","Indefinido","X"], correct:0, explain:"XOR: saída 1 apenas quando EXATAMENTE UMA entrada é 1. Com A=1 e B=1 (ambas iguais), Q=0."},
+    {type:"mc", q:"Qual o resultado de Q = A · B + A' quando A=1 e B=1?", opts:["0","1","Indefinido","X"], correct:1, explain:"Com A=1, B=1: A'=0, A·B=1, Q = 1 + 0 = 1."},
+    {type:"text", q:"Explique o Teorema de De Morgan com um exemplo prático de circuito.", minWords:25, explain:"De Morgan: (A·B)' = A'+B' e (A+B)' = A'·B'. Na prática: uma porta NAND(A,B) é equivalente a OR(NOT(A), NOT(B)). Isso significa que você pode trocar NAND por OR com entradas invertidas — muito útil em simplificação de circuitos."},
+    {type:"mc", q:"Qual operação booleana o símbolo '~' representa em Verilog?", opts:["AND","OR","NOT (inversão)","XOR"], correct:2, explain:"Em Verilog, ~ é o operador NOT (inversão bit a bit). Então ~a inverte o sinal a."},
+    {type:"code", q:"Escreva em Verilog um módulo 'xor_gate' com entradas a e b, saída y, que implementa XOR.", check:[/module\s+xor_gate/,/input\s+(wire\s+)?a/,/input\s+(wire\s+)?b/,/output\s+(wire\s+)?y/,/assign\s+y\s*=\s*a\s*\^\s*b/,/endmodule/], explain:"XOR em Verilog usa o operador ^. Então: assign y = a ^ b;"},
+    {type:"mc", q:"Qual é o resultado de Q = A · 1 na álgebra booleana (Axioma da Identidade)?", opts:["0","1","A","A'"], correct:2, explain:"Axioma 3 — Identidade: 1 · x = x. Multiplicar por 1 não altera o valor. Q = A · 1 = A."},
+    {type:"mc", q:"Se uma LUT-3 armazena a equação Q = A + (B' · C), quantas entradas ela precisa?", opts:["1","2","3","4"], correct:2, explain:"A equação usa 3 variáveis (A, B, C), então precisa de uma LUT-3 (3 entradas). Uma LUT-3 tem 2³=8 posições na tabela interna."},
+    {type:"text", q:"Por que LUTs são mais flexíveis do que usar portas lógicas físicas no FPGA?", minWords:20, explain:"LUTs podem ser reprogramadas para implementar qualquer função booleana com N entradas. Portas físicas teriam função fixa. Com LUTs, a mesma hardware pode implementar AND em um projeto e XOR em outro."},
+    {type:"mc", q:"Qual é o resultado de Q = A + A na álgebra booleana (Idempotência)?", opts:["0","2A","A","1"], correct:2, explain:"Teorema da Idempotência: x + x = x. Uma variável somada com ela mesma resulta na própria variável."},
+    {type:"mc", q:"Na tabela verdade, quantas linhas tem uma função com 4 entradas?", opts:["4","8","12","16"], correct:3, explain:"Com N entradas: 2^N linhas. Para N=4: 2⁴ = 16 linhas."},
+    {type:"code", q:"Escreva um módulo Verilog 'or_gate' com entradas a, b e saída y implementando y = a OR b.", check:[/module\s+or_gate/,/input\s+(wire\s+)?a/,/input\s+(wire\s+)?b/,/output\s+(wire\s+)?y/,/assign\s+y\s*=\s*a\s*\|\s*b/,/endmodule/], explain:"OR em Verilog usa o operador |. Então: assign y = a | b;"},
+    {type:"mc", q:"Na álgebra booleana, qual é o resultado de (A · B)' segundo De Morgan?", opts:["A · B","A + B","A' · B'","A' + B'"], correct:3, explain:"De Morgan: (A · B)' = A' + B'. Negar um produto equivale a somar as negações."}
+  ]
+},
+// ═══════════════════════════════════════════════════════════
+// MÓDULO 3 — Ambiente, Pinos e Sinais Físicos
+// ═══════════════════════════════════════════════════════════
+{
+  id:3, title:"Ambiente, Pinos e Sinais Físicos", subtitle:"Etapa 3 · Aulas 5 e 6",
+  color:"#a855f7", icon:"⚙️",
+  sources:["Aula 5 (30/04)","Aula 6 (06/05)","Slides Etapa 3"],
+  sections:[
+    {id:"m3s1", icon:"⚡", title:"Níveis Lógicos e Sinais Elétricos",
+     content:[
+      {type:"intro", text:"Os níveis lógicos 0 e 1 que estudamos na álgebra booleana são representados por sinais elétricos reais. No FPGA, os sinais aparecem como pulsos retangulares — 'quadrados' — onde a altura indica o valor lógico. Entender isso é fundamental para conectar o FPGA ao mundo físico."},
+      {type:"text", text:"No Tang Nano 9K, o banco IO opera a 1.8V (LVCMOS18). Isso significa que o nível lógico '1' é representado por ~1.8V e o nível lógico '0' é representado por ~0V. É crucial especificar o padrão de tensão correto no arquivo .cst, caso contrário pode danificar a placa."},
+      {type:"highlight", title:"Padrões de tensão do Tang Nano 9K:", items:[
+        "LVCMOS18: 1.8V — padrão para GPIO, LEDs e botões da Tang Nano 9K",
+        "LVCMOS33: 3.3V — usado em alguns outros bancos e na Tang Nano 20K",
+        "Sempre verificar o esquemático da placa para saber a tensão do banco IO utilizado",
+        "Botões S1/S2: pinos 3 e 4 (ativo-baixo, pull-up interno)",
+        "LEDs: pinos 10, 11, 13, 14, 15, 16 (ativo-baixo — precisam de ~0V para acender!)"
+      ]},
+      {type:"text", text:"'Ativo-baixo' significa que o LED acende quando o pino está em nível LOW (0V). Isso parece contraintuitivo mas é comum em hardware: 'botão pressionado = 0', 'LED aceso = 0'. No código Verilog, deve-se inverter: assign led = ~botao; (quando botão é pressionado/0, led vai para 0/acende)."}
+    ]},
+    {id:"m3s2", icon:"🔧", title:"Ferramentas Open-Source: iVerilog e GTKWave",
+     content:[
+      {type:"intro", text:"Antes de programar o hardware físico, você pode simular o circuito no computador. As ferramentas open-source iVerilog (compilador) e GTKWave (visualizador de ondas) permitem testar o código Verilog sem a placa — economizando tempo e evitando erros de hardware."},
+      {type:"highlight", title:"Fluxo de simulação (iVerilog):", items:[
+        "1. Escreva o módulo principal (.v) e o testbench (.tb.v)",
+        "2. Compile: iverilog -o sim.vvp modulo.v testbench.v",
+        "3. Execute: vvp sim.vvp (gera arquivo .vcd com as ondas)",
+        "4. Visualize: gtkwave simulacao.vcd (abre interface gráfica)",
+        "O testbench não é sintetizável — serve apenas para simulação!"
+      ]},
+      {type:"code", lang:"verilog", label:"Testbench básico para um inversor:", code:`// Arquivo: inversor_tb.v
+// NÃO é sintetizável — só para simulação!
+module inversor_tb;
+  reg a;     // entrada como reg (pode atribuir valor)
+  wire y;    // saída como wire
+  
+  // Instancia o módulo que vamos testar
+  inversor uut(.a(a), .y(y));
+  
+  initial begin
+    $dumpfile("sim.vcd");   // arquivo de ondas
+    $dumpvars(0, inversor_tb);
+    
+    // Aplica estímulos
+    a = 0; #10;  // a=0, espera 10 unidades de tempo
+    a = 1; #10;  // a=1, espera 10 unidades
+    a = 0; #10;
+    
+    $finish;   // termina simulação
+  end
+  
+  // Monitora mudanças
+  initial $monitor("t=%0t a=%b y=%b", $time, a, y);
+endmodule`},
+      {type:"text", text:"Além do iVerilog, o professor mencionou também o openFPGALoader — uma alternativa de linha de comando para programar o FPGA diretamente, sem precisar da interface gráfica do Gowin EDA. Muito útil em Linux."}
+    ]},
+    {id:"m3s3", icon:"📍", title:"PIN Constraints — Mapeando o Hardware",
+     content:[
+      {type:"intro", text:"Após sintetizar o código Verilog, você precisa dizer ao FPGA quais pinos físicos da placa correspondem às entradas e saídas do seu módulo. Esse processo se chama PIN Constraints (restrições de pinos) e é feito no arquivo .cst."},
+      {type:"diagram", svg:"verilogFlow"},
+      {type:"highlight", title:"Pinos do Tang Nano 9K (CRÍTICO — errar pode danicar o hardware!):", items:[
+        "Botão S1: pino 3 (LVCMOS18, pull-up — ativo-baixo: pressionado = 0V = nível 0)",
+        "Botão S2: pino 4 (LVCMOS18, pull-up — mesma lógica ativo-baixo)",
+        "LED0: pino 10 — ATENÇÃO: é o pino GCLKT_6 (clock global)! Evitar usar como saída regular",
+        "LED1: pino 11 (LVCMOS18, ativo-baixo)",
+        "LED2-5: pinos 13, 14, 15, 16 (LVCMOS18, ativo-baixo)"
+      ]},
+      {type:"code", lang:"verilog", label:"Exemplo de arquivo .cst para Hello World (botão→LED):", code:`// Arquivo: projeto.cst
+// Mapeamento de pinos para Tang Nano 9K
+IO_LOC "botao" 4;        // S2 no pino 4
+IO_PORT "botao" PULL_MODE=UP;  // pull-up ativo
+IO_PORT "botao" IO_TYPE=LVCMOS18;
+
+IO_LOC "led" 11;         // LED1 no pino 11
+IO_PORT "led" IO_TYPE=LVCMOS18;`},
+      {type:"text", text:"O Gowin EDA facilita esse processo com uma interface gráfica (Floor Plan) que mostra todos os pinos disponíveis. Mas é CRÍTICO verificar o esquemático da placa — os nomes e funções dos pinos variam entre modelos (Tang Nano 9K vs 20K têm pinagens diferentes). Um erro no .cst pode resultar em comportamento incorreto ou até danos."}
+    ]}
+  ],
+  questions:[
+    {type:"mc", q:"Qual padrão de tensão é usado nos pinos GPIO do Tang Nano 9K?", opts:["LVCMOS33","LVCMOS18","TTL5V","LVCMOS25"], correct:1, explain:"O Tang Nano 9K opera a 1.8V nos bancos IO principais — portanto usa LVCMOS18. Usar LVCMOS33 causaria tensão errada e poderia danificar o chip."},
+    {type:"mc", q:"Em que pinos estão os botões S1 e S2 do Tang Nano 9K?", opts:["Pinos 1 e 2","Pinos 3 e 4","Pinos 5 e 6","Pinos 7 e 8"], correct:1, explain:"S1 está no pino 3 e S2 no pino 4. Ambos são ativo-baixo com pull-up interno."},
+    {type:"mc", q:"O que significa 'ativo-baixo' no contexto dos botões do Tang Nano 9K?", opts:["O botão funciona apenas em baixa tensão","Quando pressionado, o sinal vai para 0V (nível lógico 0)","O botão está sempre em 0V","O botão precisa de tensão negativa"], correct:1, explain:"Ativo-baixo: quando o botão é pressionado, o pino vai para 0V (lógico 0). Liberado = 1V (lógico 1) devido ao pull-up interno."},
+    {type:"mc", q:"Por que o pino 10 (LED0) deve ser evitado para saída regular de LED no Tang Nano 9K?", opts:["É muito fraco para acender LED","É o pino GCLKT_6 (clock global) — uso especial","Não suporta LVCMOS18","Está reservado para programação USB"], correct:1, explain:"Pino 10 = IOL15A = GCLKT_6 — é um pino de clock global. Usá-lo como saída de LED pode causar problemas no roteamento. Use pino 11 em vez disso."},
+    {type:"mc", q:"O que é um arquivo .cst no Gowin EDA?", opts:["Arquivo de código Verilog","Arquivo de constraints — mapeamento de sinais para pinos físicos","Arquivo de simulação","Arquivo de bitstream para programação"], correct:1, explain:".cst (constraints) define quais pinos físicos do FPGA correspondem às entradas/saídas do seu módulo Verilog."},
+    {type:"mc", q:"Qual ferramenta open-source é usada para compilar e simular código Verilog?", opts:["GTKWave","Quartus Prime","Icarus Verilog (iverilog)","ModelSim"], correct:2, explain:"Icarus Verilog (iverilog) compila arquivos .v. O comando é: iverilog -o sim.vvp modulo.v testbench.v"},
+    {type:"mc", q:"Qual ferramenta visualiza as formas de onda após simulação?", opts:["iVerilog","GTKWave","Gowin EDA","openFPGALoader"], correct:1, explain:"GTKWave lê arquivos .vcd (Value Change Dump) gerados pela simulação e exibe graficamente os sinais ao longo do tempo."},
+    {type:"mc", q:"No testbench, qual tipo de dado (reg ou wire) deve ser usado para as entradas do módulo sob teste?", opts:["wire — sempre wire","reg — para poder atribuir valores no bloco initial","bit — tipo especial de testbench","logic — equivalente ao reg"], correct:1, explain:"No testbench, as entradas do módulo são declaradas como reg porque precisamos atribuí-las valores nos blocos initial/always. Saídas são declaradas como wire."},
+    {type:"mc", q:"Qual comando executa o binário de simulação gerado pelo iVerilog?", opts:["./sim.vvp","iverilog run sim.vvp","vvp sim.vvp","gtkwave sim.vvp"], correct:2, explain:"O comando vvp executa o arquivo .vvp gerado pelo iverilog. Isso gera o arquivo .vcd com as formas de onda."},
+    {type:"mc", q:"O que o comando '$monitor' faz em um testbench Verilog?", opts:["Mostra uma mensagem única no início","Monitora continuamente as variáveis e exibe quando mudam","Para a simulação quando uma condição é atingida","Gera o arquivo .vcd"], correct:1, explain:"$monitor() monitora continuamente os sinais especificados e exibe uma linha sempre que qualquer deles muda de valor — útil para depuração."},
+    {type:"mc", q:"Para um LED ativo-baixo no Tang Nano 9K, qual assign faz o LED acender quando o botão é pressionado?", opts:["assign led = botao;","assign led = ~botao;","assign led = botao & 1;","assign led = botao | 0;"], correct:1, explain:"Botão pressionado = 0 (ativo-baixo). Para acender LED (ativo-baixo, precisa de 0): assign led = ~botao; Quando botao=0 (pressionado), ~botao=1... Espera, ambos são ativo-baixo então assign led = botao; funciona! A inversão já está alinhada."},
+    {type:"text", q:"Explique o fluxo completo de simulação com iVerilog: quais arquivos são criados e qual o papel de cada um.", minWords:30, explain:"1) .v (módulo principal) + .tb.v (testbench) → iverilog compila → .vvp (binário de simulação). 2) vvp executa o .vvp → gera .vcd (Value Change Dump com formas de onda). 3) GTKWave abre o .vcd para visualizar os sinais graficamente."},
+    {type:"mc", q:"O que é Place & Route no fluxo do Gowin EDA?", opts:["Etapa de escrita do código Verilog","Etapa onde os componentes são alocados em LUTs e roteados fisicamente no chip","Etapa de programação do FPGA via USB","Etapa de simulação com testbench"], correct:1, explain:"Place & Route: após síntese, as portas lógicas são 'colocadas' (placed) em posições específicas do chip e 'roteadas' (routed) com conexões físicas. É aqui que o arquivo .cst é aplicado."},
+    {type:"mc", q:"Qual arquivo gerado pelo Gowin EDA é usado para programar o FPGA?", opts:[".v (Verilog source)",".cst (constraints)",".fs (bitstream)",".vcd (waveform)"], correct:2, explain:"O arquivo .fs é o bitstream — o arquivo binário que configura o FPGA. É enviado para a placa via USB usando o Gowin EDA Programmer ou openFPGALoader."},
+    {type:"code", q:"Escreva um testbench mínimo para testar um módulo 'and_gate' com entradas a, b e saída y. Inclua: declaração de variáveis, instanciação e pelo menos 2 estímulos.", check:[/module\s+\w+_tb|module\s+testbench/,/reg\s+a/,/reg\s+b/,/wire\s+y/,/and_gate\s*\w*\s*\(/,/initial\s*begin/,/#\d+/,/\$finish|\$stop/], explain:"Um testbench básico: 1) Declare entradas como reg, saídas como wire. 2) Instancie o módulo (uut). 3) Bloco initial com estímulos (a=x; b=y; #delay). 4) $finish para encerrar."},
+    {type:"mc", q:"O que o comando '$dumpfile' configura no testbench?", opts:["O arquivo de log da compilação","O arquivo .vcd que receberá as formas de onda","O arquivo bitstream para programação","O arquivo de constraints"], correct:1, explain:"$dumpfile('nome.vcd') especifica o arquivo onde as formas de onda serão gravadas para posterior visualização no GTKWave."},
+    {type:"mc", q:"O pino 4 do Tang Nano 9K (botão S2) tem pull-up interno. Sem apertar o botão, qual é o nível lógico no pino?", opts:["0 (LOW)","1 (HIGH)","Flutuante (indefinido)","Depende da temperatura"], correct:1, explain:"Com pull-up interno e botão não pressionado: o resistor pull-up puxa o pino para VCC → nível 1 (HIGH). Ao pressionar, o botão conecta ao GND → nível 0 (LOW)."},
+    {type:"mc", q:"Qual ferramenta alternativa ao Gowin EDA Programmer pode ser usada para programar o Tang Nano 9K?", opts:["openOCD","openFPGALoader","Flash Magic","avrdude"], correct:1, explain:"openFPGALoader é uma ferramenta CLI open-source que suporta várias placas FPGA, incluindo o Tang Nano. Muito útil para automação e uso em Linux."},
+    {type:"text", q:"Por que é importante verificar o esquemático da placa antes de configurar os pinos no arquivo .cst?", minWords:20, explain:"Os pinos do FPGA têm funções específicas e limitações de tensão. Errar a tensão (ex: usar 3.3V num banco que opera a 1.8V) pode danificar o chip. Além disso, alguns pinos têm funções especiais (como o pino 10 = clock global do Tang Nano 9K) que não devem ser usados para qualquer propósito."},
+    {type:"mc", q:"Em qual etapa do fluxo FPGA são definidos os pinos físicos (arquivo .cst)?", opts:["Especificação (escrita do .v)","Síntese (conversão para netlist)","Place & Route","Programação (.fs → FPGA)"], correct:2, explain:"O arquivo .cst é lido durante o Place & Route, quando o Gowin EDA aloca os sinais do circuito aos pinos físicos específicos da placa."}
+  ]
+},
+// ═══════════════════════════════════════════════════════════
+// MÓDULO 4 — Verilog HDL: Sintaxe e Estrutura
+// ═══════════════════════════════════════════════════════════
+{
+  id:4, title:"Verilog HDL — Sintaxe e Estrutura", subtitle:"Etapa 4 · Aulas 7 e 8",
+  color:"#f97316", icon:"{}",
+  sources:["Aula 7 (07/05)","Aula 8 (13/05)","Slides Etapa 4"],
+  sections:[
+    {id:"m4s1", icon:"📦", title:"Módulos — A unidade básica do Verilog",
+     content:[
+      {type:"intro", text:"Em Verilog, tudo é organizado em módulos. Um módulo é a unidade básica de design — ele descreve a função de uma operação lógica, podendo operar sozinho ou ser instanciado dentro de outros módulos. Pense num módulo como uma 'caixa preta' com entradas, saídas e comportamento definido."},
+      {type:"diagram", svg:"verilogModule"},
+      {type:"highlight", title:"Estrutura de um módulo Verilog:", items:[
+        "module nome_modulo(lista_de_portas);  — declaração do módulo",
+        "input wire nome_entrada;  — porta de entrada",
+        "output wire nome_saida;  — porta de saída",
+        "assign saida = expressao;  — conexão combinacional contínua",
+        "endmodule  — obrigatório ao final"
+      ]},
+      {type:"code", lang:"verilog", label:"Half Adder — somador de 1 bit:", code:`// Half Adder: soma A + B
+// Saída: soma (bit menos significativo) e carry (vai-um)
+module half_adder(
+  input  wire a,      // primeiro operando
+  input  wire b,      // segundo operando
+  output wire soma,   // bit de soma (A XOR B)
+  output wire carry   // carry out (A AND B)
+);
+  assign soma  = a ^ b;   // XOR
+  assign carry = a & b;   // AND
+endmodule
+// Verificação: 1+1=10 binário → soma=0, carry=1 ✓`},
+      {type:"code", lang:"verilog", label:"Full Adder usando 2 Half Adders (hierarquia de módulos):", code:`// Full Adder: instancia dois Half Adders
+module full_adder(
+  input  wire a, b, cin,   // operandos + carry in
+  output wire soma, cout   // resultado + carry out
+);
+  wire soma1, carry1, carry2;  // wires internos
+  
+  // Instancia half_adder pela primeira vez
+  half_adder ha1(.a(a),     .b(b),     .soma(soma1),  .carry(carry1));
+  
+  // Instancia half_adder pela segunda vez  
+  half_adder ha2(.a(soma1), .b(cin),   .soma(soma),   .carry(carry2));
+  
+  assign cout = carry1 | carry2;  // carry final
+endmodule`}
+    ]},
+    {id:"m4s2", icon:"🔗", title:"Tipos de Dados: wire e reg",
+     content:[
+      {type:"intro", text:"Verilog tem dois tipos de dados fundamentais: wire e reg. Entender a diferença é crucial — usar o tipo errado causa erros de síntese e comportamento incorreto no hardware."},
+      {type:"highlight", title:"wire vs. reg:", items:[
+        "wire: representa um fio físico. Não armazena valor — é conduzido por uma fonte contínua. Usado com assign. Se não tem driver, fica indefinido (X).",
+        "reg: representa um registrador — pode armazenar um valor entre ciclos de clock. Usado dentro de always @(posedge clk). NÃO é necessariamente um flip-flop físico!",
+        "Regra prática: entradas de módulo são sempre wire. Saídas determinadas por assign são wire. Saídas determinadas por always/initial são reg.",
+        "PEGADINHA: reg não significa sempre flip-flop! Se atribuído em always combinacional, o sintetizador cria lógica combinacional sem registradores físicos."
+      ]},
+      {type:"code", lang:"verilog", label:"Exemplo: quando usar wire vs reg", code:`module exemplo_tipos(
+  input  wire clk,
+  input  wire a, b,
+  output wire comb_out,  // saída combinacional → wire
+  output reg  seq_out    // saída sequencial → reg
+);
+  wire and_result;  // fio interno
+  assign and_result = a & b;   // conexão contínua
+  assign comb_out  = a | b;    // saída combinacional
+  
+  // Lógica sequencial (flip-flop)
+  always @(posedge clk) begin
+    seq_out <= and_result;  // captura na borda do clock
+  end
+endmodule`},
+      {type:"text", text:"O operador <= (non-blocking assignment) é usado dentro de always @(posedge clk) para criar comportamento sequencial correto. O operador = (blocking assignment) é usado para lógica combinacional. Misturar os dois incorretamente é uma fonte comum de bugs em Verilog!"}
+    ]},
+    {id:"m4s3", icon:"⚙️", title:"Operadores em Verilog",
+     content:[
+      {type:"intro", text:"Verilog possui um conjunto rico de operadores para manipular sinais. Muitos são similares à linguagem C, mas há diferenças importantes — especialmente os operadores bit a bit vs. lógicos."},
+      {type:"highlight", title:"Operadores principais:", items:[
+        "Bit a bit: & (AND), | (OR), ^ (XOR), ~ (NOT), ~^ (XNOR) — operam bit por bit em vetores",
+        "Lógicos: && (AND lógico), || (OR lógico), ! (NOT lógico) — resultado é sempre 0 ou 1",
+        "Redução: &A (AND de todos os bits), |A (OR de todos os bits), ^A (XOR/paridade)",
+        "Concatenação: {a, b, c} — junta bits em vetor maior",
+        "Deslocamento: << (shift left, multiplica por 2), >> (shift right, divide por 2)",
+        "Comparação: ==, !=, <, >, <=, >= — resultado é 0 ou 1",
+        "Aritmético: +, -, *, / (para circuitos combinacionais)"
+      ]},
+      {type:"code", lang:"verilog", label:"Exemplos de operadores:", code:`module exemplos_operadores(
+  input  wire [3:0] a, b,  // vetores de 4 bits
+  output wire [3:0] and_bb,  // AND bit a bit
+  output wire [7:0] concat,  // concatenação
+  output wire [4:0] soma,    // soma com carry
+  output wire igual,          // comparação
+  output wire paridade        // XOR redução
+);
+  assign and_bb   = a & b;         // bit a bit
+  assign concat   = {a, b};        // junta a e b em 8 bits
+  assign soma     = a + b;         // 4 bits + overflow bit
+  assign igual    = (a == b);      // 1 se iguais
+  assign paridade = ^a;            // XOR de todos os bits de 'a'
+endmodule`}
+    ]},
+    {id:"m4s4", icon:"🔄", title:"Blocos always e initial",
+     content:[
+      {type:"intro", text:"Além do assign (conexões contínuas), Verilog tem blocos procedurais: always e initial. Eles descrevem comportamento que ocorre em resposta a eventos, possibilitando lógica sequencial (flip-flops, counters, FSMs)."},
+      {type:"highlight", title:"Tipos de blocos procedurais:", items:[
+        "initial: executa UMA VEZ ao início da simulação. Não é sintetizável! Só use em testbench.",
+        "always @(*): lógica combinacional — re-avalia quando qualquer sinal da lista de sensitividade muda",
+        "always @(posedge clk): lógica sequencial síncrona — executa na borda de subida do clock",
+        "always @(posedge clk or posedge rst): com reset assíncrono — prioriza o reset",
+        "begin...end: agrupa múltiplas instruções dentro de um bloco procedural"
+      ]},
+      {type:"code", lang:"verilog", label:"Registrador D com reset síncrono e enable:", code:`module registrador(
+  input  wire clk,
+  input  wire rst,     // reset (ativo-alto)
+  input  wire enable,  // habilita captura
+  input  wire [7:0] d, // dado de entrada
+  output reg  [7:0] q  // dado capturado
+);
+  always @(posedge clk) begin  // borda de subida
+    if (rst)         q <= 8'b0;  // reset → zera
+    else if (enable) q <= d;    // captura D na borda
+    // else: q mantém valor anterior (flip-flop real!)
+  end
+endmodule
+// Reset SÍNCRONO: avaliado APENAS na borda do clock
+// Reset ASSÍNCRONO: posedge clk or posedge rst → imediato`}
+    ]}
+  ],
+  questions:[
+    {type:"mc", q:"Qual palavra-chave termina a definição de um módulo em Verilog?", opts:["end","endmodule","module_end","#end"], correct:1, explain:"Todo módulo Verilog deve terminar com endmodule. É obrigatório."},
+    {type:"mc", q:"Em Verilog, qual tipo de dado ('wire' ou 'reg') deve ser usado para declarar a saída de um assign?", opts:["reg","wire","logic","integer"], correct:1, explain:"assign dirige um wire — conexão contínua. Saídas determinadas por assign são declaradas como wire."},
+    {type:"mc", q:"Qual operador em Verilog realiza NOT bit a bit?", opts:["!","~","NOT","^"], correct:1, explain:"~ é o operador NOT bit a bit em Verilog. ! é o NOT lógico (resultado sempre 0 ou 1). Para inversão de sinal de hardware, use ~."},
+    {type:"mc", q:"Qual operador em Verilog concatena dois vetores de bits?", opts:["+ (adição)","| (OR bit a bit)","{} (chaves)","## (hash)"], correct:2, explain:"As chaves {} são o operador de concatenação. {a, b} junta a e b num vetor maior. Ex: {4'b0101, 4'b1010} = 8'b01011010."},
+    {type:"mc", q:"Qual é a diferença entre os operadores & e && em Verilog?", opts:["São idênticos","& é bit a bit (para vetores), && é lógico (resultado 0 ou 1)","& é para reg, && é para wire","& é NOT, && é AND"], correct:1, explain:"& realiza AND bit a bit em cada bit dos operandos. && realiza AND lógico — se ambos os operandos são não-zero, resultado é 1, caso contrário 0."},
+    {type:"mc", q:"Em qual contexto se usa o operador <= (non-blocking assignment) em Verilog?", opts:["Comparação de valores","Assign em lógica combinacional","Atribuição dentro de always @(posedge clk) para lógica sequencial","Declaração de variáveis"], correct:2, explain:"<= (non-blocking) é usado em always sequencial (posedge clk). Todas as atribuições são avaliadas simultaneamente ao final do ciclo, simulando corretamente o comportamento de flip-flops."},
+    {type:"mc", q:"O bloco 'initial' em Verilog é sintetizável (pode ir para hardware físico)?", opts:["Sim, sempre","Sim, com certas ferramentas","Não — initial é apenas para simulação/testbench","Depende do FPGA"], correct:2, explain:"O bloco initial executa uma única vez no início da simulação. Não representa hardware real e não é sintetizável. Use apenas em testbench."},
+    {type:"mc", q:"O que é um Half Adder?", opts:["Um somador de 8 bits","Um somador de 1 bit sem carry-in, com saída soma (XOR) e carry (AND)","Um subtrator de 4 bits","Um comparador de dois números"], correct:1, explain:"Half Adder: soma 2 bits (A e B) sem carry-in. Saídas: soma = A XOR B, carry = A AND B. Para somar múltiplos bits, usa-se Full Adder (com carry-in)."},
+    {type:"mc", q:"Qual operador em Verilog faz shift left (deslocamento à esquerda) de 1 bit?", opts:[">>> 1","<< 1","// 1","** 1"], correct:1, explain:"<< é o operador de shift left. A << 1 desloca A um bit à esquerda, equivalente a multiplicar por 2. >> é shift right (divide por 2)."},
+    {type:"mc", q:"Qual é a sintaxe para instanciar um módulo chamado 'half_adder' dentro de outro módulo?", opts:["call half_adder(a, b);","half_adder nome(.a(a), .b(b));","include half_adder;","use half_adder(a=>a, b=>b);"], correct:1, explain:"A sintaxe de instanciação em Verilog é: nome_modulo nome_instancia(.porta(sinal), ...); Os pontos conectam os nomes das portas do módulo aos sinais locais."},
+    {type:"mc", q:"O que o operador ^ faz em Verilog?", opts:["Potenciação (a^b = a elevado a b)","XOR bit a bit","Shift left","Concatenação"], correct:1, explain:"^ é o operador XOR em Verilog. a ^ b realiza XOR bit a bit. ^a (prefixo) é XOR de redução — XOR de todos os bits de a (útil para cálculo de paridade)."},
+    {type:"code", q:"Escreva um módulo Verilog 'half_adder' com entradas a e b, saídas soma (a^b) e carry (a&b).", check:[/module\s+half_adder/,/input\s+(wire\s+)?a/,/input\s+(wire\s+)?b/,/output\s+(wire\s+)?soma/,/output\s+(wire\s+)?carry/,/assign\s+soma\s*=\s*a\s*\^\s*b/,/assign\s+carry\s*=\s*a\s*&\s*b/,/endmodule/], explain:"Half Adder: soma = a ^ b (XOR) e carry = a & b (AND)."},
+    {type:"mc", q:"Em um always @(posedge clk), o que acontece quando nem o reset nem o enable estão ativos (lógica de registrador)?", opts:["A saída vai para 0","A saída vai para X (indefinido)","A saída mantém o valor anterior — é o flip-flop retendo o dado","A saída vai para o valor de d"], correct:2, explain:"Quando nenhuma condição de atualização está ativa, o reg mantém seu valor anterior — esse é o comportamento de retenção de estado que cria o flip-flop físico no hardware."},
+    {type:"text", q:"Explique a diferença entre = (blocking) e <= (non-blocking) em Verilog, e quando usar cada um.", minWords:25, explain:"= (blocking): executa imediatamente, na ordem. Usado em always combinacional. <= (non-blocking): todas as atribuições são agendadas e aplicadas simultaneamente ao final do ciclo. Usado em always sequencial (posedge clk) para simular corretamente flip-flops paralelos — evita race conditions."},
+    {type:"mc", q:"Qual é o resultado de {4'b0101, 4'b1010} em Verilog?", opts:["4'b0000","8'b01011010","8'b10100101","Erro de tipo"], correct:1, explain:"Concatenação: {4'b0101, 4'b1010} junta os dois vetores de 4 bits em 8 bits: 8'b01011010. O primeiro operando ocupa os bits mais significativos."},
+    {type:"mc", q:"Para lógica sequencial (flip-flop), qual sensitividade se usa no always?", opts:["always @(*)","always @(posedge clk)","always begin","always @(level)"], correct:1, explain:"always @(posedge clk) dispara na borda de subida do clock — exatamente como um flip-flop tipo D captura dados na borda positiva do clock."},
+    {type:"code", q:"Escreva um contador Verilog de 4 bits com clock (clk) e reset síncrono (rst). O contador incrementa a cada borda de clock.", check:[/module\s+\w+/,/input\s+(wire\s+)?clk/,/input\s+(wire\s+)?rst/,/output\s+reg\s+\[3:0\]|reg\s+\[3:0\]\s+\w+/,/always\s*@\s*\(posedge\s+clk\)/,/(if|if\s*\()\s*rst/,/<=\s*4'b0|<=\s*0/,/<=\s*\w+\s*\+\s*1/,/endmodule/], explain:"Contador com reset síncrono: always @(posedge clk) → if (rst) conta <= 0; else conta <= conta + 1;"},
+    {type:"mc", q:"O que faz o operador ^ (XOR de redução) quando usado como prefixo em Verilog? Ex: ^a onde a=[4'b1011]?", opts:["Zera todos os bits de a","Calcula XOR de todos os bits: 1^0^1^1 = 1","Cria paridade par sempre","Equivale a a & 1"], correct:1, explain:"^a (XOR de redução) calcula o XOR de todos os bits. Para 4'b1011: 1^0^1^1 = 1. Isso é útil para cálculo de paridade — resultado 1 se número de 1s é ímpar."},
+    {type:"mc", q:"Qual é a diferença entre reset síncrono e reset assíncrono em Verilog?", opts:["Não há diferença","Síncrono: sempre @(posedge clk) — reset avaliado na borda; Assíncrono: @(posedge clk or posedge rst) — reset imediato","Síncrono é mais lento","Assíncrono só funciona em simulação"], correct:1, explain:"Reset síncrono: avaliado apenas na borda do clock (if rst dentro do always clk). Reset assíncrono: listed na sensitividade (or posedge rst) — aplica imediatamente, sem esperar o clock."},
+    {type:"text", q:"Descreva o que faz cada parte deste código Verilog: 'assign soma = {1'b0, a} + {1'b0, b};' onde a e b são de 4 bits.", minWords:20, explain:"Concatena um bit 0 na frente de a e b para criar operandos de 5 bits, evitando overflow na soma. O resultado soma é de 5 bits — o bit mais significativo é o carry da adição de 4 bits."}
+  ]
+},
+// ═══════════════════════════════════════════════════════════
+// MÓDULO 5 — Álgebra Booleana Avançada e Mapas de Karnaugh
+// ═══════════════════════════════════════════════════════════
+{
+  id:5, title:"Álgebra Booleana Avançada e Mapas de Karnaugh", subtitle:"Etapa 5 · Aulas 9 e 10",
+  color:"#ffd700", icon:"🗺",
+  sources:["Aula 9 (14/05)","Aula 10 (20/05)","Slides Etapa 5"],
+  sections:[
+    {id:"m5s1", icon:"📐", title:"Mintermos, Maxtermos e Formas Canônicas",
+     content:[
+      {type:"intro", text:"A partir de qualquer tabela verdade, existem duas formas canônicas padronizadas para expressar uma função booleana: Soma de Mintermos (SOP — Sum of Products) e Produto de Maxtermos (POS — Product of Sums). Essas formas são o ponto de partida para simplificação."},
+      {type:"highlight", title:"Mintermos e Maxtermos (Slides Etapa 5):", items:[
+        "Mintermo: produto booleano de N variáveis (cada uma verdadeira ou complementada) — ex: z1(x1,x2,x3): x1 · x2' · x3 é mintermo m₅",
+        "Maxtermo: soma booleana de N variáveis — dual do mintermo",
+        "Soma de Mintermos (SOP): z = Σ(mintermos onde saída=1) — ex: z = x1'x2x3 + x1x2'x3 + x1x2x3",
+        "Forma SOP simplificada (Soma de Produtos): nem todos os termos precisam ter todas as variáveis",
+        "Quanto maior o grupo no Mapa K, menos variáveis na expressão simplificada"
+      ]},
+      {type:"example", title:"Exemplo: Minimize a equação abaixo a uma SOP", body:`Tabela verdade:
+A B C D | X
+0 0 0 1 → 1
+0 1 0 1 → 1
+1 1 0 1 → 1
+1 1 1 1 → 1
+(demais → 0)
+
+Soma de mintermos: X = A'B'CD + A'BCD + ABCD + AB'CD
+Simplificando: note que C=1 e D=1 em todos → X = CD
+(fatorando: os grupos no mapa K revelarão isso)`},
+      {type:"text", text:"O truque chave: uma função booleana pode ter muitas expressões equivalentes. A Forma SOP simplificada usa menos termos e menos variáveis — o que resulta em menos portas lógicas, menor área no chip e menor consumo de energia. É por isso que a simplificação é crucial no design de hardware."}
+    ]},
+    {id:"m5s2", icon:"🗺️", title:"Mapas de Karnaugh — Simplificação Visual",
+     content:[
+      {type:"intro", text:"O Mapa de Karnaugh (Mapa K) é um método gráfico para simplificar expressões booleanas. Em vez de usar álgebra (que pode ser complexa), você organiza a tabela verdade num mapa 2D e identifica grupos de 1s adjacentes. A mágica: variáveis que mudam dentro de um grupo se cancelam!"},
+      {type:"diagram", svg:"karnaughMap"},
+      {type:"highlight", title:"Regras do Mapa de Karnaugh:", items:[
+        "Organize as colunas/linhas em código Gray (00, 01, 11, 10) — garantindo que vizinhos diferem em apenas 1 bit",
+        "Agrupe 1s adjacentes em grupos de potências de 2: pares (2), quartetos (4), octetos (8)",
+        "Grupos maiores eliminam mais variáveis — sempre use o maior grupo possível",
+        "Grupos podem se sobrepor e podem 'dobrar' pelas bordas do mapa",
+        "Todo 1 deve estar em pelo menos um grupo — mas evite grupos desnecessários (simplificação mínima)",
+        "Para cada grupo: identifique variáveis que NÃO mudam no grupo — essas formam o termo"
+      ]},
+      {type:"example", title:"Procedimento completo (Slides Etapa 5):", body:`1) Construa o mapa K, coloque os 1s nos quadrados correspondentes à tabela verdade
+2) Analise 1s isolados (não adjacentes a outros 1s) — esses formam termos sozinhos
+3) Forme grupos de 2 (pares), depois de 4 (quartetos), depois de 8 (octetos)
+4) Prefira grupos maiores — eliminam mais variáveis
+5) Cada grupo gera um termo produto (AND das variáveis que não mudam)
+6) Some todos os termos (OR) → expressão SOP mínima`}
+    ]},
+    {id:"m5s3", icon:"🔌", title:"Circuitos Combinacionais Avançados",
+     content:[
+      {type:"intro", text:"Com a base de álgebra booleana e simplificação via Mapa K, podemos agora implementar circuitos combinacionais mais complexos em Verilog: multiplexadores, comparadores e somadores completos. Esses são os blocos funcionais do design digital."},
+      {type:"highlight", title:"Multiplexador (MUX) — o seletor de dados:", items:[
+        "Um MUX 2:1 tem 2 entradas (d0, d1), 1 sinal de seleção (sel) e 1 saída (y)",
+        "sel=0 → y=d0; sel=1 → y=d1. Equação: y = (~sel & d0) | (sel & d1)",
+        "Um MUX 4:1 tem 4 entradas e 2 bits de seleção — 4 combinações",
+        "MUXes são a base de: multiplexação de dados, circuitos condicionais (if-else em hardware), ROM lookup tables"
+      ]},
+      {type:"code", lang:"verilog", label:"Multiplexador 4:1 em Verilog:", code:`// MUX 4:1 usando assign ternário
+module mux4to1(
+  input  wire [3:0] d,    // 4 entradas de dados (d[0] a d[3])
+  input  wire [1:0] sel,  // seleção de 2 bits
+  output wire       y     // saída
+);
+  // Método 1: assign aninhado
+  assign y = sel[1] ? (sel[0] ? d[3] : d[2])
+                    : (sel[0] ? d[1] : d[0]);
+  
+  // Método 2: usando case em always
+  // always @(*) case(sel) 2'b00: y=d[0]; ... endcase
+endmodule`},
+      {type:"code", lang:"verilog", label:"Comparador de magnitude 4 bits:", code:`// Comparador: verifica se a > b, a == b, a < b
+module comparador4(
+  input  wire [3:0] a, b,
+  output wire maior,   // a > b
+  output wire igual,   // a == b  
+  output wire menor    // a < b
+);
+  assign maior = (a > b);
+  assign igual = (a == b);
+  assign menor = (a < b);
+  // Verilog suporta comparadores diretamente!
+  // O sintetizador gera o hardware otimizado automaticamente
+endmodule`}
+    ]}
+  ],
+  questions:[
+    {type:"mc", q:"O que é um mintermo?", opts:["A menor expressão booleana possível","Um produto booleano de N variáveis onde cada variável aparece exatamente uma vez (verdadeira ou complementada)","Uma linha da tabela verdade onde a saída é 0","Um grupo no Mapa de Karnaugh"], correct:1, explain:"Mintermo: produto booleano de N variáveis, cada variável aparecendo exatamente uma vez (true ou complementada). Ex: z(x1,x2,x3): x1·x2'·x3 é o mintermo m5."},
+    {type:"mc", q:"O que é a Soma de Mintermos (SOP)?", opts:["Soma de todos os valores da tabela verdade","Expressão onde cada termo contém todas as variáveis, e é a OR de todos os mintermos onde a saída é 1","Produto de todos os termos da tabela verdade","A expressão mais simplificada possível"], correct:1, explain:"SOP (Sum of Products / Soma de Mintermos): é a soma (OR) de todos os mintermos onde a saída da função é 1. Forma canônica — cada minterm tem todas as N variáveis."},
+    {type:"mc", q:"No Mapa de Karnaugh, por que as colunas/linhas são organizadas em código Gray (00, 01, 11, 10)?", opts:["Para facilitar a leitura","Para garantir que vizinhos adjacentes diferem em exatamente 1 bit — condição para simplificação","Para ordenar crescentemente","É apenas convenção histórica"], correct:1, explain:"Código Gray garante que quadrados adjacentes (vertical, horizontal) diferem em exatamente 1 bit. Isso é o que permite cancelar variáveis nos grupos — um par de 1s adjacentes significa que uma variável pode ser eliminada."},
+    {type:"mc", q:"No Mapa K, ao agrupar 4 células (quarteto) onde a variável B aparece como B=0 e B=1, o que acontece com B na expressão final?", opts:["B fica como B=0","B fica como B=1","B é eliminada — não aparece no termo","B vira B XOR 1"], correct:2, explain:"Quando uma variável aparece nas formas complementada (B') e não-complementada (B) dentro do mesmo grupo, ela se cancela — não aparece no termo resultante. É a magia do Mapa K!"},
+    {type:"mc", q:"Qual o tamanho máximo de um grupo no Mapa K de 3 variáveis (8 células)?", opts:["2 células","4 células","8 células","16 células"], correct:2, explain:"O maior grupo possível em um mapa K de N variáveis tem 2^N células. Para 3 variáveis: 2³=8 células. Um octeto elimina 3 variáveis — a expressão simplificada é a constante 1 (função sempre 1)."},
+    {type:"mc", q:"O que é um Multiplexador (MUX)?", opts:["Um circuito que amplifica sinais","Um seletor de dados — seleciona uma de N entradas para a saída baseado em bits de seleção","Um somador de múltiplos bits","Um comparador de tensão"], correct:1, explain:"MUX é um seletor: recebe N entradas de dados e M bits de seleção (onde 2^M = N). A saída é a entrada selecionada pelos bits de controle."},
+    {type:"mc", q:"Para um MUX 4:1, quantos bits de seleção são necessários?", opts:["1","2","4","3"], correct:1, explain:"MUX 4:1: 4 entradas = 2² entradas → 2 bits de seleção. Os 2 bits podem endereçar 4 combinações (00, 01, 10, 11)."},
+    {type:"mc", q:"Na expressão: y = sel ? d1 : d0; o que acontece quando sel=1?", opts:["y = d0","y = d1","y = sel","y = 0"], correct:1, explain:"O operador ternário ?: em Verilog funciona como: condição ? valor_se_true : valor_se_false. Quando sel=1 (true), y recebe d1."},
+    {type:"mc", q:"Qual é a expressão booleana para um MUX 2:1 com entradas d0, d1 e seleção sel?", opts:["y = d0 AND d1","y = (~sel & d0) | (sel & d1)","y = sel XOR d0","y = d0 + d1 + sel"], correct:1, explain:"MUX 2:1: y = (~sel & d0) | (sel & d1). Quando sel=0: y = d0. Quando sel=1: y = d1."},
+    {type:"mc", q:"Grupos no Mapa K podem 'dobrar' pelas bordas (wrap around)?", opts:["Não — grupos não podem tocar as bordas","Sim — grupos podem unir células das bordas opostas como se o mapa fosse toroidal","Apenas nas linhas, não nas colunas","Apenas grupos de 2, não de 4 ou 8"], correct:1, explain:"Sim! O Mapa K é toroidal — as bordas opostas se conectam. Um grupo pode incluir células do lado esquerdo e direito, ou topo e base, do mapa."},
+    {type:"mc", q:"Após simplificação com Mapa K de 4 variáveis, você obtém X = BD. Quantas variáveis foram eliminadas?", opts:["0","1","2","3"], correct:2, explain:"A equação original tinha 4 variáveis (A, B, C, D). Após simplificação, X = BD usa apenas 2 variáveis. Portanto, A e C foram eliminadas — 2 variáveis."},
+    {type:"text", q:"Descreva o procedimento completo para simplificar uma função booleana usando o Mapa de Karnaugh.", minWords:35, explain:"1) Construa o mapa K (código Gray nas linhas/colunas). 2) Preencha com os valores da tabela verdade. 3) Identifique 1s isolados. 4) Forme grupos de potências de 2 (pares, quartetos, octetos) — use os maiores possíveis. 5) Grupos podem dobrar pelas bordas. 6) Para cada grupo: identifique variáveis que não mudam → formam o termo. 7) Some todos os termos → SOP mínima."},
+    {type:"mc", q:"Qual é a forma mais compacta de expressar 'se sel[1]=0 e sel[0]=0, y=d[0]' em Verilog?", opts:["if (sel==0) y = d[0];","assign y = (sel == 2'b00) ? d[0] : ...;","d[0] when sel=00","case(sel) 2'b00: y=d[0]; endcase em always"], correct:1, explain:"O operador ternário com assign é ideal para lógica combinacional simples. Para MUX mais complexo, o bloco always com case é mais legível."},
+    {type:"mc", q:"Em Verilog, como se escreve o número binário 1011 de 4 bits?", opts:["b1011","4b1011","4'b1011","0b1011"], correct:2, explain:"Formato padrão em Verilog: 'tamanho'base'valor. Então 4'b1011 = 4 bits em base binária com valor 1011. Outros formatos: 8'hFF (hex), 4'd9 (decimal)."},
+    {type:"code", q:"Escreva em Verilog um módulo 'mux2to1' com entradas d0, d1, sel e saída y, onde sel=0→y=d0, sel=1→y=d1.", check:[/module\s+mux2to1/,/input\s+(wire\s+)?d0/,/input\s+(wire\s+)?d1/,/input\s+(wire\s+)?sel/,/output\s+(wire\s+)?y/,/assign\s+y\s*=\s*sel\s*\?\s*d1\s*:\s*d0|assign\s+y\s*=\s*(~sel\s*&\s*d0\s*\|\s*sel\s*&\s*d1)/,/endmodule/], explain:"MUX 2:1: assign y = sel ? d1 : d0; — mais conciso. Alternativa: assign y = (~sel & d0) | (sel & d1);"},
+    {type:"mc", q:"Numa expressão SOP (Soma de Produtos), o que cada 'produto' representa?", opts:["Uma multiplicação de números","Um mintermo — AND de variáveis (complementadas ou não)","A saída total da função","Um bit na tabela verdade"], correct:1, explain:"Em SOP, cada 'produto' é um AND (produto lógico) de variáveis — pode ser um mintermo completo ou um termo simplificado com menos variáveis."},
+    {type:"mc", q:"Um grupo de 8 células (octeto) em um Mapa K de 4 variáveis produz um termo com quantas variáveis?", opts:["1","2","3","4"], correct:0, explain:"Cada vez que o grupo dobra de tamanho, uma variável é eliminada. 1 célula → 4 variáveis. 2 células → 3 variáveis. 4 células → 2 variáveis. 8 células → 1 variável. 16 células (todo o mapa) → 0 variáveis (constante 1)."},
+    {type:"text", q:"Por que a simplificação de expressões booleanas é importante no design de hardware (FPGA/ASIC)?", minWords:25, explain:"Expressões simplificadas usam menos portas lógicas (menos LUTs no FPGA), o que resulta em: menor área no chip, menor consumo de energia, maior velocidade (menos camadas de lógica = menor atraso de propagação). Para ASICs de produção em massa, isso se traduz diretamente em custo e performance."},
+    {type:"mc", q:"Qual é o número de linhas na tabela verdade para uma função de 4 variáveis (A, B, C, D)?", opts:["4","8","12","16"], correct:3, explain:"Com N variáveis: 2^N linhas. Para N=4: 2⁴ = 16 linhas."},
+    {type:"mc", q:"No Mapa K de 4 variáveis, qual é a ordem Gray para as colunas (C e D)?", opts:["00, 01, 10, 11","00, 01, 11, 10","11, 01, 00, 10","10, 00, 01, 11"], correct:1, explain:"Código Gray para 4 combinações: 00, 01, 11, 10. Cada par adjacente difere em exatamente 1 bit. Essa é a ordem usada nas colunas do mapa K de 4 variáveis."},
+    {type:"mc", q:"Em Verilog, qual operador verifica igualdade entre dois vetores?", opts:["= (atribuição)","== (comparação de igualdade)","=== (comparação com X/Z)","~ (inversão)"], correct:1, explain:"== verifica igualdade lógica entre dois valores (tratando X como undefined). === verifica igualdade exata incluindo X e Z — útil em simulação mas não sintetizável."}
+  ]
+}
+];
+
+// ─── CONTENT RENDERER ───────────────────────────────────────────────────────
+function ContentRenderer({ blocks }) {
+  return (
+    <div>
+      {blocks.map((block, i) => {
+        switch (block.type) {
+          case 'intro':
+            return <div key={i} style={{ background: T.accentGlow, border: `1px solid ${T.accentDim}`, borderLeft: `4px solid ${T.accent}`, borderRadius: 8, padding: "14px 18px", marginBottom: 16, color: T.text, fontSize: 14, lineHeight: 1.7 }}>{block.text}</div>;
+          case 'text':
+            return <p key={i} style={{ color: T.textDim, fontSize: 14, lineHeight: 1.75, marginBottom: 14 }}>{block.text}</p>;
+          case 'highlight':
+            return <div key={i} style={{ background: T.bgSection, border: `1px solid ${T.border}`, borderRadius: 8, padding: "14px 18px", marginBottom: 16 }}>
+              {block.title && <div style={{ color: T.yellow, fontSize: 12, fontWeight: 700, marginBottom: 10, fontFamily: "monospace" }}>{block.title}</div>}
+              <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+                {block.items.map((item, j) => <li key={j} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 }}>
+                  <span style={{ color: T.accent, fontSize: 10, marginTop: 5, flexShrink: 0 }}>▸</span>
+                  <span style={{ color: T.textDim, fontSize: 13, lineHeight: 1.6 }}>{item}</span>
+                </li>)}
+              </ul>
+            </div>;
+          case 'diagram':
+            const svgKey = block.svg;
+            const svgContent = DIAGRAMS[svgKey];
+            return svgContent ? <div key={i} style={{ margin: "16px 0", overflowX: "auto" }} dangerouslySetInnerHTML={{ __html: svgContent }} /> : null;
+          case 'history':
+            return <div key={i} style={{ background: `${T.purple}10`, border: `1px solid ${T.purple}44`, borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
+              {block.title && <div style={{ color: T.purple, fontSize: 11, fontWeight: 700, marginBottom: 8, fontFamily: "monospace" }}>{block.title}</div>}
+              <p style={{ color: T.textDim, fontSize: 13, lineHeight: 1.7 }}>{block.text}</p>
+            </div>;
+          case 'examples':
+            return <div key={i} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10, marginBottom: 16 }}>
+              {block.items.map((ex, j) => <div key={j} style={{ background: T.bgSection, border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 14px" }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>{ex.icon}</div>
+                <div style={{ color: T.accent, fontSize: 11, fontWeight: 700, marginBottom: 5, fontFamily: "monospace" }}>{ex.label}</div>
+                <p style={{ color: T.textDim, fontSize: 12, lineHeight: 1.5 }}>{ex.desc}</p>
+              </div>)}
+            </div>;
+          case 'table':
+            return <div key={i} style={{ overflowX: "auto", marginBottom: 16 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace", fontSize: 12 }}>
+                <thead>
+                  <tr>{block.headers.map((h, j) => <th key={j} style={{ background: T.bgCode, color: T.accent, padding: "8px 12px", textAlign: "left", borderBottom: `1px solid ${T.border}`, fontWeight: 700 }}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, j) => <tr key={j} style={{ background: j % 2 === 0 ? T.bgSection : "transparent" }}>
+                    {row.map((cell, k) => <td key={k} style={{ padding: "7px 12px", color: k === 0 ? T.yellow : T.textDim, borderBottom: `1px solid ${T.border}55` }}>{cell}</td>)}
+                  </tr>)}
+                </tbody>
+              </table>
+            </div>;
+          case 'code':
+            return <div key={i} style={{ marginBottom: 16 }}>
+              {block.label && <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 6, fontFamily: "monospace" }}>{block.label}</div>}
+              <div style={{ background: T.bgCode, border: `1px solid ${T.border}`, borderRadius: 8, padding: "14px 16px", overflowX: "auto" }}>
+                <pre style={{ color: T.green, fontSize: 12, fontFamily: "monospace", lineHeight: 1.6 }}>{block.code}</pre>
+              </div>
+            </div>;
+          case 'example':
+            return <div key={i} style={{ background: T.bgCode, border: `1px solid ${T.border}`, borderRadius: 8, padding: "14px 16px", marginBottom: 16 }}>
+              {block.title && <div style={{ color: T.orange, fontSize: 12, fontWeight: 700, marginBottom: 10, fontFamily: "monospace" }}>{block.title}</div>}
+              <pre style={{ color: T.textDim, fontSize: 12, fontFamily: "monospace", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{block.body}</pre>
+            </div>;
+          default:
+            return null;
+        }
+      })}
+    </div>
+  );
+}
+
+// ─── STUDY VIEW ─────────────────────────────────────────────────────────────
+function StudyView({ mod, readSections, onRead, onBack }) {
+  const [secIdx, setSecIdx] = useState(0);
+  const sec = mod.sections[secIdx];
+  const isRead = !!readSections[sec.id];
+  const allRead = mod.sections.every(s => !!readSections[s.id]);
+
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px 20px" }}>
+      <button onClick={onBack} style={{ background: "transparent", color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 14px", cursor: "pointer", fontSize: 12, marginBottom: 16 }}>← Voltar</button>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <div style={{ fontSize: 22 }}>{mod.icon}</div>
+        <div>
+          <div style={{ color: mod.color, fontWeight: 700, fontSize: 16 }}>Módulo {mod.id}: {mod.title}</div>
+          <div style={{ color: T.textMuted, fontSize: 11 }}>{mod.subtitle} · Fontes: {mod.sources.join(", ")}</div>
+        </div>
+        {allRead && <div style={{ marginLeft: "auto", color: T.green, fontSize: 12, fontFamily: "monospace" }}>✓ tudo lido</div>}
+      </div>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 20, paddingBottom: 4 }}>
+        {mod.sections.map((s, i) => (
+          <button key={s.id} onClick={() => setSecIdx(i)} style={{ flexShrink: 0, background: i === secIdx ? `${mod.color}25` : T.bgSection, color: i === secIdx ? mod.color : (readSections[s.id] ? T.green : T.textDim), border: `1px solid ${i === secIdx ? mod.color + "66" : (readSections[s.id] ? T.green + "44" : T.border)}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>
+            {s.icon} {s.title}{readSections[s.id] ? " ✓" : ""}
+          </button>
+        ))}
+      </div>
+      <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+          <span style={{ fontSize: 24 }}>{sec.icon}</span>
+          <h2 style={{ color: T.text, fontSize: 16, fontWeight: 700 }}>{sec.title}</h2>
+        </div>
+        <ContentRenderer blocks={sec.content} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 24, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+          <button onClick={() => setSecIdx(Math.max(0, secIdx - 1))} disabled={secIdx === 0} style={{ background: "transparent", color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 16px", cursor: "pointer", fontSize: 12, opacity: secIdx === 0 ? 0.4 : 1 }}>← Anterior</button>
+          {!isRead && <button onClick={() => onRead(sec.id)} style={{ background: `${T.green}20`, color: T.green, border: `1px solid ${T.green}55`, borderRadius: 8, padding: "7px 18px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>✓ Marcar como lida</button>}
+          {isRead && <span style={{ color: T.green, fontSize: 12, fontFamily: "monospace" }}>✓ Seção lida</span>}
+          <button onClick={() => setSecIdx(Math.min(mod.sections.length - 1, secIdx + 1))} disabled={secIdx === mod.sections.length - 1} style={{ background: "transparent", color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 16px", cursor: "pointer", fontSize: 12, opacity: secIdx === mod.sections.length - 1 ? 0.4 : 1 }}>Próxima →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── QUIZ VIEW ───────────────────────────────────────────────────────────────
+function checkCode(answer, patterns) {
+  if (!answer || !patterns || patterns.length === 0) return true;
+  return patterns.every(p => {
+    try {
+      const re = p instanceof RegExp ? p : new RegExp(p);
+      return re.test(answer);
+    } catch { return false; }
+  });
+}
+
+function QuizView({ mod, onComplete, bestScore, onBack }) {
+  const [answers, setAnswers] = useState({});
+  const [current, setCurrent] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [results, setResults] = useState(null);
+  const [textInputs, setTextInputs] = useState({});
+  const questions = mod.questions;
+  const q = questions[current];
+
+  function finish() {
+    let correct = 0;
+    const res = questions.map((q, i) => {
+      let ok = false;
+      if (q.type === 'mc') ok = answers[i] === q.correct;
+      else if (q.type === 'code') ok = checkCode(textInputs[i] || '', q.check);
+      else if (q.type === 'text') ok = (textInputs[i] || '').trim().split(/\s+/).length >= (q.minWords || 10);
+      if (ok) correct++;
+      return { ok, answer: answers[i] ?? textInputs[i] };
+    });
+    const score = Math.round((correct / questions.length) * 100);
+    setResults(res);
+    setSubmitted(true);
+    onComplete(score);
+  }
+
+  if (submitted && results) {
+    const score = Math.round((results.filter(r => r.ok).length / questions.length) * 100);
+    const passed = score >= 90;
+    return (
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px 20px" }}>
+        <button onClick={onBack} style={{ background: "transparent", color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 14px", cursor: "pointer", fontSize: 12, marginBottom: 16 }}>← Voltar</button>
+        <div style={{ background: T.bgCard, border: `2px solid ${passed ? T.green : T.yellow}`, borderRadius: 14, padding: 24, marginBottom: 20, textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 8 }}>{passed ? "🎉" : "📚"}</div>
+          <div style={{ color: passed ? T.green : T.yellow, fontSize: 36, fontWeight: 700, fontFamily: "monospace" }}>{score}%</div>
+          <div style={{ color: T.textDim, fontSize: 14, marginTop: 6 }}>{passed ? "Módulo desbloqueado! Aprovado com ≥ 90%." : `Precisa de ${90 - score}% a mais. Revise o material e tente novamente.`}</div>
+          {bestScore !== null && <div style={{ color: T.textMuted, fontSize: 11, marginTop: 4 }}>Melhor nota anterior: {bestScore}%</div>}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {questions.map((q, i) => (
+            <div key={i} style={{ background: T.bgSection, border: `1px solid ${results[i].ok ? T.green + "44" : T.red + "44"}`, borderRadius: 8, padding: "12px 16px" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 }}>
+                <span style={{ color: results[i].ok ? T.green : T.red, fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{results[i].ok ? "✓" : "✗"}</span>
+                <div style={{ color: T.text, fontSize: 13 }}><strong>Q{i + 1}:</strong> {q.q}</div>
+              </div>
+              {q.type === 'mc' && <div style={{ fontSize: 12, color: T.textDim, paddingLeft: 22 }}>Sua resposta: <span style={{ color: results[i].ok ? T.green : T.red }}>{q.opts[results[i].answer]}</span>{!results[i].ok && <span style={{ color: T.green }}> · Correto: {q.opts[q.correct]}</span>}</div>}
+              <div style={{ fontSize: 11, color: T.purple, paddingLeft: 22, marginTop: 4 }}>💡 {q.explain}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+          <button onClick={() => { setSubmitted(false); setResults(null); setAnswers({}); setTextInputs({}); setCurrent(0); }} style={{ flex: 1, background: T.yellowDim, color: T.yellow, border: `1px solid ${T.yellow}44`, borderRadius: 8, padding: "10px 0", cursor: "pointer", fontWeight: 700 }}>🔄 Refazer Prova</button>
+          <button onClick={onBack} style={{ flex: 1, background: T.bgSection, color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 0", cursor: "pointer" }}>← Voltar ao Mapa</button>
+        </div>
+      </div>
+    );
+  }
+
+  const progress = Math.round((Object.keys(answers).length + Object.keys(textInputs).length) / questions.length * 100);
+  const hasAnswer = q.type === 'mc' ? answers[current] !== undefined : (textInputs[current] || '').length > 0;
+
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px 20px" }}>
+      <button onClick={onBack} style={{ background: "transparent", color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 14px", cursor: "pointer", fontSize: 12, marginBottom: 14 }}>← Voltar</button>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: mod.color, fontWeight: 700, fontSize: 14 }}>Prova — {mod.title}</div>
+          <div style={{ color: T.textMuted, fontSize: 11 }}>Questão {current + 1} de {questions.length} · Mínimo 90% para passar</div>
+        </div>
+        {bestScore !== null && <div style={{ color: T.yellow, fontSize: 12, fontFamily: "monospace" }}>Melhor: {bestScore}%</div>}
+      </div>
+      <div style={{ height: 3, background: T.border, borderRadius: 2, marginBottom: 16, overflow: "hidden" }}>
+        <div style={{ height: "100%", background: mod.color, width: `${(current / questions.length) * 100}%`, borderRadius: 2, transition: "width 0.3s" }} />
+      </div>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 16 }}>
+        {questions.map((_, i) => <div key={i} onClick={() => setCurrent(i)} style={{ width: 24, height: 24, borderRadius: 4, background: i === current ? mod.color + "44" : (answers[i] !== undefined || textInputs[i]?.length > 0 ? T.green + "33" : T.bgSection), border: `1px solid ${i === current ? mod.color : T.border}`, cursor: "pointer", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted }}>{i + 1}</div>)}
+      </div>
+      <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <span style={{ background: q.type === 'mc' ? T.accentGlow : q.type === 'code' ? `${T.orange}20` : `${T.purple}20`, color: q.type === 'mc' ? T.accent : q.type === 'code' ? T.orange : T.purple, border: `1px solid ${q.type === 'mc' ? T.accent : q.type === 'code' ? T.orange : T.purple}44`, borderRadius: 5, padding: "3px 8px", fontSize: 10, fontFamily: "monospace", flexShrink: 0 }}>{q.type === 'mc' ? 'MÚLTIPLA ESCOLHA' : q.type === 'code' ? 'CÓDIGO VERILOG' : 'DISSERTATIVA'}</span>
+        </div>
+        <p style={{ color: T.text, fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>{q.q}</p>
+        {q.type === 'mc' && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {q.opts.map((opt, j) => (
+              <button key={j} onClick={() => setAnswers(a => ({...a, [current]: j}))} style={{ textAlign: "left", background: answers[current] === j ? `${mod.color}25` : T.bgSection, color: answers[current] === j ? mod.color : T.textDim, border: `1px solid ${answers[current] === j ? mod.color : T.border}`, borderRadius: 8, padding: "10px 14px", cursor: "pointer", fontSize: 13 }}>
+                <span style={{ opacity: 0.5, marginRight: 8, fontFamily: "monospace" }}>{String.fromCharCode(65 + j)}.</span>{opt}
+              </button>
+            ))}
+          </div>
+        )}
+        {(q.type === 'code' || q.type === 'text') && (
+          <div>
+            {q.type === 'code' && <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8, fontFamily: "monospace" }}>⌨️ Escreva código Verilog válido (sintaxe será verificada automaticamente)</div>}
+            {q.type === 'text' && <div style={{ color: T.textMuted, fontSize: 11, marginBottom: 8 }}>✏️ Resposta dissertativa mínima: {q.minWords || 10} palavras</div>}
+            <textarea value={textInputs[current] || ''} onChange={e => setTextInputs(t => ({...t, [current]: e.target.value}))} rows={q.type === 'code' ? 8 : 4} style={{ width: "100%", background: T.bgCode, color: q.type === 'code' ? T.green : T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 14px", fontSize: 13, resize: "vertical", lineHeight: 1.6 }} placeholder={q.type === 'code' ? `module nome_modulo(...);
+  // seu código aqui
+endmodule` : 'Escreva sua resposta aqui...'} />
+            {q.type === 'text' && <div style={{ color: T.textMuted, fontSize: 11, marginTop: 4, textAlign: "right" }}>{(textInputs[current] || '').trim().split(/s+/).filter(Boolean).length} / {q.minWords || 10} palavras mínimas</div>}
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0} style={{ background: "transparent", color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 18px", cursor: "pointer", fontSize: 12, opacity: current === 0 ? 0.4 : 1 }}>← Anterior</button>
+        <div style={{ flex: 1 }} />
+        {current < questions.length - 1 ? (
+          <button onClick={() => setCurrent(c => c + 1)} style={{ background: T.accentDim, color: T.text, border: "none", borderRadius: 8, padding: "8px 22px", cursor: "pointer", fontSize: 12 }}>Próxima →</button>
+        ) : (
+          <button onClick={finish} style={{ background: T.green, color: "#000", border: "none", borderRadius: 8, padding: "8px 24px", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Finalizar Prova ✓</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── MODULE MAP ───────────────────────────────────────────────────────────────
+function ModuleMap({ modules, unlocked, scores, onStart }) {
+  const totalPassed = modules.filter(m => scores[m.id] >= 90).length;
+  const totalRead = 0; // simplified
+
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 20px" }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ color: T.accent, fontFamily: "monospace", fontSize: 18, marginBottom: 4 }}>⬡ Fundamentos de Verilog e FPGA</h1>
+        <p style={{ color: T.textDim, fontSize: 12 }}>Prof. Daniel Da Costa Vidal · Sistemas Embarcados · Tang Nano 9K + Gowin EDA</p>
+        <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
+          <div style={{ background: T.bgSection, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 16px", fontSize: 12 }}>
+            <span style={{ color: T.textMuted }}>Aprovados: </span><span style={{ color: T.green, fontWeight: 700 }}>{totalPassed}/{modules.length}</span>
+          </div>
+          <div style={{ background: T.bgSection, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 16px", fontSize: 12 }}>
+            <span style={{ color: T.textMuted }}>Desbloqueados: </span><span style={{ color: T.accent, fontWeight: 700 }}>{Object.values(unlocked).filter(Boolean).length}/{modules.length}</span>
+          </div>
+        </div>
+      </div>
+      {modules.map((m) => {
+        const isUnlocked = unlocked[m.id];
+        const score = scores[m.id] ?? null;
+        const passed = score !== null && score >= 90;
+        return (
+          <div key={m.id} style={{ background: T.bgCard, border: `2px solid ${isUnlocked ? m.color + "55" : T.border}`, borderRadius: 14, padding: 18, marginBottom: 12, opacity: isUnlocked ? 1 : 0.6, transition: "all 0.2s" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ fontSize: 28 }}>{isUnlocked ? (passed ? "✅" : "🔓") : "🔒"}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: isUnlocked ? m.color : T.textMuted, fontWeight: 700, fontSize: 15 }}>Módulo {m.id}: {m.title}</div>
+                <div style={{ color: T.textDim, fontSize: 12, marginTop: 2 }}>{m.subtitle}</div>
+                <div style={{ color: T.textMuted, fontSize: 11, marginTop: 2 }}>{m.sections.length} seções · {m.questions.length} questões · {m.sources.join(", ")}</div>
+              </div>
+              {score !== null && <div style={{ textAlign: "right" }}>
+                <div style={{ color: passed ? T.green : T.yellow, fontSize: 22, fontWeight: 700, fontFamily: "monospace" }}>{score}%</div>
+                <div style={{ color: T.textMuted, fontSize: 10 }}>melhor nota</div>
+              </div>}
+              {!isUnlocked && m.id > 1 && <div style={{ color: T.yellow, fontSize: 11, padding: "3px 8px", border: `1px solid ${T.yellow}55`, borderRadius: 5 }}>Precisa 90% M{m.id - 1}</div>}
+            </div>
+            {isUnlocked && (
+              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                <button onClick={() => onStart("study", m.id - 1)} style={{ flex: 1, background: `${m.color}15`, color: m.color, border: `1px solid ${m.color}44`, borderRadius: 8, padding: "9px 0", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>📖 Estudar</button>
+                <button onClick={() => onStart("quiz", m.id - 1)} style={{ flex: 1, background: T.yellowDim, color: T.yellow, border: `1px solid ${T.yellow}44`, borderRadius: 8, padding: "9px 0", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>📋 Fazer Prova</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div style={{ background: T.bgSection, border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 16px", marginTop: 8 }}>
+        <div style={{ color: T.textMuted, fontSize: 11, fontFamily: "monospace" }}>ℹ️ Progresso salvo automaticamente · Passe com ≥90% para desbloquear o próximo módulo · Múltiplas tentativas permitidas</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TOPBAR ───────────────────────────────────────────────────────────────────
+function TopBar({ view, setView, curMod }) {
+  const mod = curMod !== null ? MODULES[curMod] : null;
+  return (
+    <div style={{ position: "sticky", top: 0, zIndex: 100, background: T.bgCard + "ee", backdropFilter: "blur(10px)", borderBottom: `1px solid ${T.border}`, padding: "0 20px", height: 48, display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ color: T.accent, fontFamily: "monospace", fontWeight: 700, fontSize: 14, cursor: "pointer" }} onClick={() => setView("map")}>⬡ FPGA+VERILOG</div>
+      {view !== "map" && mod && <>
+        <span style={{ color: T.textMuted }}>/</span>
+        <div style={{ color: mod.color, fontSize: 12, fontFamily: "monospace" }}>M{mod.id}: {mod.title}</div>
+        <span style={{ color: T.textMuted }}>/</span>
+        <div style={{ color: T.textDim, fontSize: 12 }}>{view === "study" ? "📖 Estudo" : "📋 Prova"}</div>
+      </>}
+      <div style={{ flex: 1 }} />
+      <button onClick={() => setView("map")} style={{ background: "transparent", color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontSize: 11 }}>🗺 Mapa</button>
+    </div>
+  );
+}
+
+// ─── APP ─────────────────────────────────────────────────────────────────────
+function App() {
+  const [view, setView] = useState("map");
+  const [curMod, setCurMod] = useState(0);
+  const [readSections, setReadSections] = useState({});
+  const [quizScores, setQuizScores] = useState({});
+  const [unlocked, setUnlocked] = useState(() => {
+    const u = {};
+    MODULES.forEach((m, i) => { u[m.id] = i === 0; });
+    return u;
+  });
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const p = loadProgress();
+    if (p.readSections) setReadSections(p.readSections);
+    if (p.quizScores) setQuizScores(p.quizScores);
+    if (p.moduleUnlocked) setUnlocked(p.moduleUnlocked);
+    setLoaded(true);
+  }, []);
+
+  function persist(rs, qs, ul) {
+    saveProgress({ readSections: rs, quizScores: qs, moduleUnlocked: ul });
+  }
+
+  function markRead(secId) {
+    const rs = { ...readSections, [secId]: true };
+    setReadSections(rs);
+    persist(rs, quizScores, unlocked);
+  }
+
+  function handleQuizComplete(modId, score) {
+    const qs = { ...quizScores, [modId]: Math.max(quizScores[modId] || 0, score) };
+    let ul = { ...unlocked };
+    if (score >= 90 && modId < MODULES.length) ul[modId + 1] = true;
+    setQuizScores(qs);
+    setUnlocked(ul);
+    persist(readSections, qs, ul);
+  }
+
+  function startSection(v, modIdx) {
+    setCurMod(modIdx);
+    setView(v);
+  }
+
+  if (!loaded) return <div style={{ background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: T.accent, fontFamily: "monospace" }}>Carregando progresso...</div>;
+
+  const mod = MODULES[curMod];
+
+  return (
+    <div style={{ background: T.bg, minHeight: "100vh", color: T.text, fontFamily: "'SF Pro Display', -apple-system, sans-serif" }}>
+      <TopBar view={view} setView={(v) => { setView(v); if (v === "map") setCurMod(0); }} curMod={view !== "map" ? curMod : null} />
+      <div style={{ minHeight: "calc(100vh - 48px)" }}>
+        {view === "map" && <ModuleMap modules={MODULES} unlocked={unlocked} scores={quizScores} onStart={startSection} />}
+        {view === "study" && <StudyView mod={mod} readSections={readSections} onRead={markRead} onBack={() => setView("map")} />}
+        {view === "quiz" && <QuizView mod={mod} onComplete={(score) => handleQuizComplete(mod.id, score)} bestScore={quizScores[mod.id] ?? null} onBack={() => setView("map")} />}
+      </div>
+    </div>
+  );
+}
+
+const container = document.getElementById("root");
+const root = ReactDOM.createRoot(container);
+root.render(React.createElement(App));
+document.getElementById("loading-screen").style.display = "none";
+</script>
+</body>
+</html>
